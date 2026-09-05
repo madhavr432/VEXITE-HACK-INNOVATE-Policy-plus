@@ -40,6 +40,7 @@ import { StressScenarioTable } from '../components/bus/StressScenarioTable';
 import { CaseComparisonChart } from '../components/bus/CaseComparisonChart';
 import { StressStatusSummary } from '../components/bus/StressStatusSummary';
 import { PolicyRiskSection } from '../components/bus/PolicyRiskSection';
+import { AIPolicyAnalyst } from '../components/bus/AIPolicyAnalyst';
 
 // Demo data & backend simulation service
 import {
@@ -55,6 +56,7 @@ import {
   formatInrLakhs,
   formatPaxK,
 } from '../services/busSimulation';
+import { analyzePolicy } from '../services/aiAnalyst';
 
 export function BusPage() {
   // 1. Primary Policy Configuration State
@@ -92,6 +94,11 @@ export function BusPage() {
   const [isRiskLoading, setIsRiskLoading] = useState(false);
   const [riskResult, setRiskResult] = useState(null);
   const [riskError, setRiskError] = useState(null);
+
+  // AI Policy Analyst State (Commit 7)
+  const [isAILoading, setIsAILoading] = useState(false);
+  const [aiAnalysisResult, setAIAnalysisResult] = useState(null);
+  const [aiError, setAIError] = useState(null);
 
   // Inline Validation States
   const validationErrors = useMemo(() => {
@@ -986,6 +993,44 @@ export function BusPage() {
             error={riskError}
             onRefresh={() => executeRiskEvaluation()}
             selectedFleetIncrease={parseFloat(fleetIncrease) || 0}
+          />
+
+          {/* ========================================================================= */}
+          {/* SECTION: AI POLICY ANALYST (COMMIT 7)                                    */}
+          {/* ========================================================================= */}
+          <AIPolicyAnalyst
+            analysisResult={aiAnalysisResult}
+            isLoading={isAILoading}
+            error={aiError}
+            onAnalyze={async (question) => {
+              if (!isValid) return;
+              setIsAILoading(true);
+              setAIError(null);
+              try {
+                const params = {
+                  currentBuses,
+                  fleetIncrease,
+                  dailyPassengers,
+                  busCapacity,
+                  ticketPrice,
+                  costPerBus,
+                  tripsPerBusPerDay,
+                  currentWaitingTime,
+                  demandElasticity,
+                };
+                const result = await analyzePolicy(params, question);
+                setAIAnalysisResult(result);
+              } catch (err) {
+                const msg = err?.response?.data?.detail
+                  || err?.message
+                  || 'AI analysis is temporarily unavailable.';
+                setAIError(msg);
+              } finally {
+                setIsAILoading(false);
+              }
+            }}
+            selectedFleetIncrease={parseFloat(fleetIncrease) || 0}
+            disabled={!isValid}
           />
         </div>
       </div>

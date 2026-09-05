@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from app.schemas.health import HealthResponse
 from app.routes.bus import router as bus_router
 from app.routes.gst import router as gst_router
+from app.routes.ai import router as ai_router
 
 # Load environment variables
 load_dotenv()
@@ -44,6 +45,7 @@ async def health_check():
 # Include domain routers
 app.include_router(bus_router)
 app.include_router(gst_router)
+app.include_router(ai_router)
 
 if __name__ == "__main__":
     import uvicorn

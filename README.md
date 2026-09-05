@@ -174,18 +174,80 @@ The bus policy engine calculates deterministic, reproducible mathematical projec
 
 ---
 
+## AI Policy Analyst
+
+Policy+ uses Google Gemini as an **interpretation layer** above its deterministic simulation engines.
+
+### Architecture
+
+```
+Policy Input
+     ↓
+Deterministic Simulation (FastAPI)
+     ↓
+Stress Testing Engine
+     ↓
+Risk Engine (4-dimensional, 0-100 score)
+     ↓
+Validated Results
+     ↓
+Gemini AI Policy Analyst
+     ↓
+Human Decision
+```
+
+The **simulation, stress testing, and risk scoring engines** calculate all quantitative results — fleet capacity, operating surplus, utilization, risk scores, and stress scenario outcomes. Gemini receives those validated results and explains risks, trade-offs, assumptions, and implications in plain policy language.
+
+**Gemini does not calculate or modify any policy metrics.**
+
+### AI Output Sections
+
+| Section | Description |
+|---|---|
+| Executive Summary | 2-4 sentence policy overview |
+| Key Insights | 3-5 evidence-based findings |
+| Risk Explanation | Why the policy received its deterministic risk score |
+| Trade-offs | Explicit benefit/cost pairs grounded in validated results |
+| Stress Findings | Interpretation of Attack My Policy outcomes |
+| Assumption Warnings | Important caveats about model limitations |
+| Recommendations | Non-authoritative, action-oriented suggestions |
+
+### Configuration
+
+Add your Gemini API key to `backend/.env`:
+
+```env
+GEMINI_API_KEY=your_gemini_api_key_here
+```
+
+Obtain an API key from [Google AI Studio](https://aistudio.google.com/apikey).
+
+**Security**: The API key is backend-only. It is never exposed to React or the browser.
+
+---
+
+## Responsible AI Statement
+
+Policy+ is a decision-support prototype, not an autonomous policy-making system.
+
+Its results depend on the assumptions and scenarios supplied. Gemini is used to explain validated outputs, not to make decisions or generate authoritative forecasts.
+
+The mathematical simulation results are deterministic and reproducible. The AI interpretation layer is designed to surface trade-offs and risks in human-readable language to assist — not replace — expert policy judgment.
+
+---
+
 ## Development Roadmap
 
 ```text
-Commit 1  → Project foundation (Pristine architecture, routing, design system & API placeholders)  [ACTIVE]
-Commit 2  → Bus policy UI (Route & fleet intervention configuration panels)
-Commit 3  → Bus simulation engine (Deterministic queue & headway modeling)
-Commit 4  → Bus scenario comparison (Multi-policy delta analysis)
-Commit 5  → Bus stress testing and risk scoring (Surge simulation & capacity thresholds)
-Commit 6  → Independent GST simulator (Fiscal rates, consumption elasticity, bracket modeling)
-Commit 7  → Gemini AI analyst (Automated policy brief & trade-off synthesis)
-Commit 8  → Unified analytics dashboard (Cross-domain impact visualization)
-Commit 9  → Explainability and reliability (Sensitivity metrics & audit trails)
+Commit 1  → Project foundation (Architecture, routing, design system & API placeholders)  ✅
+Commit 2  → Bus policy UI (Route & fleet intervention configuration panels)                ✅
+Commit 3  → Bus simulation engine (Deterministic queue & headway modeling)                 ✅
+Commit 4  → Bus scenario comparison (Multi-policy delta analysis)                         ✅
+Commit 5  → Attack My Policy + Stress Testing (Surge simulation & capacity thresholds)   ✅
+Commit 6  → Deterministic Policy Risk Engine (4-dimensional 0-100 risk scoring)          ✅
+Commit 7  → Gemini AI Policy Analyst (Interpretation layer over deterministic results)    ✅
+Commit 8  → GST Policy Simulator (Fiscal rates, consumption elasticity, bracket modeling)
+Commit 9  → Unified analytics dashboard (Cross-domain impact visualization)
 Commit 10 → Final hackathon polish (End-to-end integration & performance hardening)
 ```
 
