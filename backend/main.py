@@ -19,15 +19,24 @@ app = FastAPI(
     redoc_url="/redoc"
 )
 
-# CORS configuration
-origins = os.getenv(
-    "CORS_ORIGINS",
-    "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000"
-).split(",")
+# Explicit production and local origins
+DEFAULT_ORIGINS = [
+    "https://policy-plus-zeta.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:3000",
+]
+
+cors_env = os.getenv("CORS_ORIGINS")
+if cors_env:
+    env_origins = [orig.strip() for orig in cors_env.split(",") if orig.strip()]
+    origins = list(dict.fromkeys(DEFAULT_ORIGINS + env_origins))
+else:
+    origins = DEFAULT_ORIGINS
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[origin.strip() for origin in origins if origin.strip()],
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

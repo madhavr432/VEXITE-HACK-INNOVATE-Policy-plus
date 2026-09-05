@@ -161,8 +161,9 @@ export function GstPage() {
           // Non-blocking
         }
       }
-    } catch {
-      setApiError('Unable to calculate the policy results. Please check the policy inputs and try again.');
+    } catch (err) {
+      const msg = err?.userMessage || err?.response?.data?.detail || 'Unable to calculate the policy results. Please check the policy inputs and try again.';
+      setApiError(msg);
     } finally {
       setIsSimulating(false);
     }
@@ -181,8 +182,9 @@ export function GstPage() {
     try {
       const data = await runGstStressTest(getParams());
       setStressResult(data);
-    } catch {
-      setApiError('Unable to complete stress test evaluation. Please check policy inputs and try again.');
+    } catch (err) {
+      const msg = err?.userMessage || err?.response?.data?.detail || 'Unable to complete stress test evaluation. Please check policy inputs and try again.';
+      setApiError(msg);
     } finally {
       setIsAttacking(false);
     }
@@ -196,8 +198,9 @@ export function GstPage() {
     try {
       const result = await analyzePolicy(getParams(), question, 'gst');
       setAIAnalysisResult(result);
-    } catch {
-      setAIError('AI analysis is currently unavailable. Your simulation, stress test and risk results are still available.');
+    } catch (err) {
+      const msg = err?.userMessage || 'AI analysis is currently unavailable. Your simulation, stress test and risk results are still available.';
+      setAIError(msg);
     } finally {
       setIsAILoading(false);
     }

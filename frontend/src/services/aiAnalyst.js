@@ -63,4 +63,7 @@ export async function analyzePolicy(params, question = null, module = 'bus') {
   return response.data;
 }
 
-export default { analyzePolicy };
+export const analyzePolicyWithGemini = analyzePolicy;
+
+export default { analyzePolicy, analyzePolicyWithGemini };
+

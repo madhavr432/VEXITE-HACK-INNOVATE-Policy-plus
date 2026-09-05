@@ -181,8 +181,9 @@ export function BusPage() {
       setStressResult(stressResponse);
       setRiskResult(riskResponse);
       setIsBackendLive(true);
-    } catch {
-      setApiError('Unable to calculate the policy results. Please check the policy inputs and try again.');
+    } catch (err) {
+      const msg = err?.userMessage || err?.response?.data?.detail || 'Unable to calculate the policy results. Please check the policy inputs and try again.';
+      setApiError(msg);
       setIsBackendLive(false);
     } finally {
       setIsSimulating(false);
@@ -216,8 +217,9 @@ export function BusPage() {
       ]);
       setStressResult(stressResponse);
       setRiskResult(riskResponse);
-    } catch {
-      setAttackError('Unable to complete stress test evaluation. Please check policy inputs and try again.');
+    } catch (err) {
+      const msg = err?.userMessage || err?.response?.data?.detail || 'Unable to complete stress test evaluation. Please check policy inputs and try again.';
+      setAttackError(msg);
     } finally {
       setIsAttacking(false);
     }
@@ -245,8 +247,9 @@ export function BusPage() {
     try {
       const response = await getBusRisk(params);
       setRiskResult(response);
-    } catch {
-      setRiskError('Unable to calculate policy risk. Please check policy inputs and try again.');
+    } catch (err) {
+      const msg = err?.userMessage || err?.response?.data?.detail || 'Unable to calculate policy risk. Please check policy inputs and try again.';
+      setRiskError(msg);
     } finally {
       setIsRiskLoading(false);
     }
@@ -1065,14 +1068,14 @@ export function BusPage() {
                 const result = await analyzePolicy(params, question);
                 setAIAnalysisResult(result);
               } catch (err) {
-                let msg = 'AI analysis is temporarily unavailable.';
+                let msg = err?.userMessage || 'AI analysis is temporarily unavailable.';
                 if (typeof err?.response?.data?.detail === 'string') {
                   msg = err.response.data.detail;
                 } else if (err?.response?.status === 500) {
                   msg = 'The AI service encountered a temporary server error. Please try again.';
                 } else if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) {
                   msg = 'AI analysis timed out. The model took longer than expected to respond. Please try again.';
-                } else if (err?.message) {
+                } else if (err?.message && !err?.userMessage) {
                   msg = err.message;
                 }
                 setAIError(msg);

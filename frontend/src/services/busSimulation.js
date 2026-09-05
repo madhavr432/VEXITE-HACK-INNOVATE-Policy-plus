@@ -130,14 +130,25 @@ export async function getBusPresets() {
   return DEMO_SCENARIO_PRESETS;
 }
 
+/**
+ * Alias exports matching Policy+ API service conventions
+ */
+export const simulateBusPolicy = runBusSimulation;
+export const stressTestBusPolicy = runBusStressTest;
+export const calculateBusRisk = getBusRisk;
+
 export default {
   runBusSimulation,
+  simulateBusPolicy,
   getBusScenarios,
   runBusStressTest,
+  stressTestBusPolicy,
   getBusRisk,
+  calculateBusRisk,
   getBusPresets,
   formatInrLakhs,
   formatPaxK,
 };
+
 
 
