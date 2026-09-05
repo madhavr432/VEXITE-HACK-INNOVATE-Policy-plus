@@ -1,20 +1,20 @@
 """
-Gemini AI Policy Analyst Service (Commit 7)
+Gemini AI Policy Analyst Service (Commit 7 & 8)
 
 Architecture:
-    BusSimulationRequest
-        → simulate_bus_policy()          [existing deterministic engine]
-        → run_bus_stress_test()          [existing deterministic engine]
-        → calculate_bus_policy_risk()    [existing deterministic engine]
-        → _build_analysis_context()      [assemble validated package]
-        → _build_prompt()                [system instruction + question]
-        → Gemini API (gemini-2.0-flash)  [interpretation only]
-        → Pydantic validation            [structured response]
+    PolicyRequest (Bus or GST)
+        → Domain Simulation Engine      [deterministic engine]
+        → Domain Stress Test Engine     [deterministic engine]
+        → Domain Risk Engine            [deterministic engine]
+        → _build_analysis_context()     [assemble validated package with module="bus" | "gst"]
+        → _build_prompt()               [system instruction + question]
+        → Gemini API (gemini-2.5-flash) [interpretation only]
+        → Pydantic validation           [structured response]
         → AIPolicyAnalysisResponse
 
 Critical Principle:
     Gemini is an interpretation layer. It NEVER calculates or modifies
-    any policy metric. All numbers come from the deterministic engines.
+    any policy metric. All numbers come strictly from the deterministic engines.
 """
 
 import os
@@ -30,10 +30,15 @@ except ImportError:
     genai_types = None  # type: ignore
 
 from app.schemas.bus import BusSimulationRequest
+from app.schemas.gst import GSTSimulationRequest
 from app.schemas.ai import AIPolicyAnalysisResponse, TradeoffItem
 from app.services.bus.simulation import simulate_bus_policy
 from app.services.bus.stress_test import run_bus_stress_test
 from app.services.bus.risk import calculate_bus_policy_risk
+from app.services.gst.simulation import simulate_gst_policy
+from app.services.gst.scenarios import generate_gst_scenarios
+from app.services.gst.stress_test import run_gst_stress_test
+from app.services.gst.risk import calculate_gst_policy_risk
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +66,8 @@ Hard constraints:
 - If asked about something outside the supplied analysis (e.g. political figures, \
 real-world events), state clearly that the information is outside the provided simulation context.
 - Treat every number as a model estimate under specified assumptions, not a guaranteed forecast.
+- GST results are illustrative scenario outputs based on configurable assumptions and \
+should not be represented as official government revenue estimates.
 
 Communication style:
 - Concise, analytical, evidence-based.
@@ -72,19 +79,15 @@ Communication style:
 
 
 # ---------------------------------------------------------------------------
-# Analysis Context Builder
+# Analysis Context Builders
 # ---------------------------------------------------------------------------
 
-def _build_analysis_context(
+def _build_bus_analysis_context(
     request: BusSimulationRequest,
-    question: Optional[str],
+    question: Optional[str] = None,
 ) -> Dict[str, Any]:
     """
-    Run all deterministic engines and assemble a structured analysis package.
-    This is the ONLY source of numbers that Gemini will see.
-
-    Returns:
-        A validated analysis context dictionary ready to be serialized into the prompt.
+    Run Bus deterministic engines and assemble a structured analysis package.
     """
     sim_result = simulate_bus_policy(request)
     stress_result = run_bus_stress_test(request)
@@ -94,7 +97,6 @@ def _build_analysis_context(
         stress_result=stress_result,
     )
 
-    # Serialize stress scenario summary
     stress_scenarios_summary = []
     for sc in stress_result.stress_scenarios:
         stress_scenarios_summary.append({
@@ -107,7 +109,8 @@ def _build_analysis_context(
             "waiting_time_minutes": sc.results.waiting_time_minutes,
         })
 
-    context = {
+    return {
+        "module": "bus",
         "policy": {
             "current_fleet": request.current_fleet,
             "fleet_increase_percent": request.fleet_increase_percent,
@@ -199,7 +202,138 @@ def _build_analysis_context(
         "user_question": question or None,
     }
 
-    return context
+
+def _build_gst_analysis_context(
+    request: GSTSimulationRequest,
+    question: Optional[str] = None,
+) -> Dict[str, Any]:
+    """
+    Run GST deterministic engines and assemble a structured analysis package.
+    """
+    sim_result = simulate_gst_policy(request)
+    scenarios_result = generate_gst_scenarios(request)
+    stress_result = run_gst_stress_test(request)
+    risk_result = calculate_gst_policy_risk(
+        request=request,
+        simulation_result=sim_result,
+        stress_result=stress_result,
+    )
+
+    stress_scenarios_summary = []
+    for sc in stress_result.stress_scenarios:
+        stress_scenarios_summary.append({
+            "name": sc.name,
+            "description": sc.description,
+            "status": sc.status,
+            "status_reasons": sc.status_reasons,
+            "effective_compliance_rate": sc.effective_compliance_rate,
+            "effective_elasticity": sc.effective_elasticity,
+            "modeled_gst_revenue": sc.modeled_gst_revenue,
+            "revenue_change_percent_vs_proposed": sc.revenue_change_percent_vs_proposed,
+            "demand_response_percent": sc.demand_response_percent,
+        })
+
+    scenarios_summary = []
+    for sc in scenarios_result.scenarios:
+        scenarios_summary.append({
+            "gst_rate": sc.gst_rate,
+            "is_current": sc.is_current,
+            "is_proposed": sc.is_proposed,
+            "modeled_gst_revenue": sc.modeled_gst_revenue,
+            "revenue_change_percent": sc.revenue_change_percent,
+            "demand_response_percent": sc.demand_response_percent,
+        })
+
+    return {
+        "module": "gst",
+        "policy": {
+            "current_rate_percent": request.current_rate,
+            "proposed_rate_percent": request.proposed_rate,
+            "annual_taxable_turnover_inr": request.annual_turnover,
+        },
+        "simulation": {
+            "current": {
+                "rate_percent": sim_result.current.rate_percent,
+                "taxable_volume": sim_result.current.taxable_volume,
+                "effective_taxable_base": sim_result.current.effective_taxable_base,
+                "gst_revenue": sim_result.current.gst_revenue,
+            },
+            "proposed": {
+                "rate_percent": sim_result.proposed.rate_percent,
+                "taxable_volume": sim_result.proposed.taxable_volume,
+                "effective_taxable_base": sim_result.proposed.effective_taxable_base,
+                "gst_revenue": sim_result.proposed.gst_revenue,
+            },
+            "impact": {
+                "rate_change_percent": sim_result.impact.rate_change_percent,
+                "demand_change_percent": sim_result.impact.demand_change_percent,
+                "revenue_change": sim_result.impact.revenue_change,
+                "revenue_impact_percent": sim_result.impact.revenue_impact_percent,
+                "modeled_consumer_tax_impact": sim_result.impact.modeled_consumer_tax_impact,
+            },
+        },
+        "scenarios": scenarios_summary,
+        "assumptions": {
+            "compliance_rate_percent": request.compliance_rate,
+            "demand_elasticity": request.demand_elasticity,
+            "effective_tax_base_factor": request.effective_tax_base_factor,
+            "disclaimer": (
+                "GST results are illustrative scenario outputs based on configurable "
+                "assumptions and should not be represented as official government revenue estimates."
+            ),
+        },
+        "stress_test": {
+            "policy_survives_all_tests": stress_result.summary.policy_survives_all_tests,
+            "scenarios_tested": stress_result.summary.scenarios_tested,
+            "stable_scenarios": stress_result.summary.stable_scenarios,
+            "warning_scenarios": stress_result.summary.warning_scenarios,
+            "critical_scenarios": stress_result.summary.critical_scenarios,
+            "breaking_point": (
+                {
+                    "scenario_name": stress_result.breaking_point.scenario_name,
+                    "status": stress_result.breaking_point.status,
+                    "reason": stress_result.breaking_point.reason,
+                    "revenue_deterioration_percent": stress_result.breaking_point.revenue_deterioration_percent,
+                }
+                if stress_result.breaking_point
+                else None
+            ),
+            "worst_case": {
+                "name": stress_result.worst_case.name,
+                "modeled_gst_revenue": stress_result.worst_case.modeled_gst_revenue,
+                "revenue_change_percent_vs_proposed": stress_result.worst_case.revenue_change_percent_vs_proposed,
+            },
+            "stress_scenarios": stress_scenarios_summary,
+        },
+        "risk_analysis": {
+            "overall_score": risk_result.overall_score,
+            "risk_level": risk_result.risk_level,
+            "risk_level_label": risk_result.risk_level_label,
+            "top_risk_drivers": risk_result.top_risk_drivers,
+            "policy_verdict": risk_result.policy_verdict,
+            "components": {
+                dim: {
+                    "name": comp.name,
+                    "score": comp.score,
+                    "weight_percent": round(comp.weight * 100),
+                    "level": comp.level,
+                    "primary_reason": comp.primary_reason,
+                    "metric_label": comp.metric_label,
+                    "metric_value": comp.metric_value,
+                }
+                for dim, comp in risk_result.components.items()
+            },
+        },
+        "user_question": question or None,
+    }
+
+
+# Backwards compatibility alias for bus tests
+def _build_analysis_context(
+    request: BusSimulationRequest,
+    question: Optional[str] = None,
+) -> Dict[str, Any]:
+    return _build_bus_analysis_context(request, question)
 
 
 # ---------------------------------------------------------------------------
@@ -221,9 +355,10 @@ def _build_prompt(context: Dict[str, Any]) -> str:
         )
 
     context_json = json.dumps(context, indent=2, ensure_ascii=False, default=str)
+    module_name = context.get("module", "bus").upper()
 
     return (
-        f"Analyze the following Policy+ validated simulation results and provide "
+        f"Analyze the following Policy+ {module_name} validated simulation results and provide "
         f"a structured policy analysis.{question_section}\n\n"
         f"VALIDATED ANALYSIS CONTEXT:\n```json\n{context_json}\n```\n\n"
         f"Return a JSON object with exactly these fields:\n"
@@ -257,62 +392,30 @@ def _get_api_key() -> str:
     return key
 
 
-# ---------------------------------------------------------------------------
-# Main Service Function
-# ---------------------------------------------------------------------------
-
-def analyze_bus_policy(
-    request: BusSimulationRequest,
-    question: Optional[str] = None,
-) -> AIPolicyAnalysisResponse:
+def _execute_gemini_analysis(prompt: str) -> AIPolicyAnalysisResponse:
     """
-    Orchestrate the full AI policy analysis pipeline:
-
-    1. Validate API key availability.
-    2. Re-run deterministic engines to obtain validated results.
-    3. Assemble structured analysis context.
-    4. Build and send prompt to Gemini.
-    5. Parse and validate structured response with Pydantic.
-    6. Return AIPolicyAnalysisResponse.
-
-    Raises:
-        ValueError: If GEMINI_API_KEY is not configured.
-        RuntimeError: If Gemini returns an invalid or unparseable response.
-        Exception: For other API-level failures (re-raised with context).
+    Shared orchestration logic for executing Gemini analysis and validating JSON.
     """
-    # 1. Check API key first (fail fast, clean error)
     api_key = _get_api_key()
 
-    # 2 + 3. Run deterministic engines and assemble context
-    logger.info("Building analysis context via deterministic engines...")
-    analysis_context = _build_analysis_context(request, question)
+    if genai is None:
+        raise RuntimeError("google-genai package is not installed.")
 
-    # 4. Build prompt
-    prompt = _build_prompt(analysis_context)
+    client = genai.Client(api_key=api_key)
 
-    # 5. Call Gemini
-    logger.info("Calling Gemini AI policy analyst...")
     try:
-        if genai is None:
-            raise RuntimeError("google-genai package is not installed.")
-
-        client = genai.Client(api_key=api_key)
-
         response = client.models.generate_content(
             model="gemini-2.5-flash",
             contents=prompt,
             config=genai_types.GenerateContentConfig(
                 system_instruction=_SYSTEM_INSTRUCTION,
-                temperature=0.3,          # Low temp for analytical consistency
+                temperature=0.3,
                 max_output_tokens=8192,
                 response_mime_type="application/json",
             ),
         )
-
         raw_text = (response.text or "").strip()
-
     except ValueError:
-        # Re-raise API key errors as-is
         raise
     except Exception as exc:
         logger.error("Gemini API call failed: %s", exc)
@@ -320,7 +423,6 @@ def analyze_bus_policy(
             f"AI analysis temporarily unavailable. Gemini API error: {type(exc).__name__}"
         ) from exc
 
-    # 6. Parse and validate response
     if not raw_text:
         raise RuntimeError(
             "AI analysis returned an empty response. Please try again."
@@ -334,13 +436,37 @@ def analyze_bus_policy(
             "AI analysis returned an unreadable response. Please try again."
         ) from exc
 
-    # Validate with Pydantic (raises ValidationError on schema mismatch)
     try:
         return AIPolicyAnalysisResponse(**parsed)
     except Exception as exc:
         logger.error("Pydantic validation failed for Gemini response: %s", exc)
-        # Attempt safe partial recovery for common recoverable fields
         return _safe_partial_recovery(parsed, exc)
+
+
+def analyze_bus_policy(
+    request: BusSimulationRequest,
+    question: Optional[str] = None,
+) -> AIPolicyAnalysisResponse:
+    """
+    Orchestrate full AI policy analysis pipeline for Bus module.
+    """
+    logger.info("Building Bus analysis context via deterministic engines...")
+    analysis_context = _build_bus_analysis_context(request, question)
+    prompt = _build_prompt(analysis_context)
+    return _execute_gemini_analysis(prompt)
+
+
+def analyze_gst_policy(
+    request: GSTSimulationRequest,
+    question: Optional[str] = None,
+) -> AIPolicyAnalysisResponse:
+    """
+    Orchestrate full AI policy analysis pipeline for GST module.
+    """
+    logger.info("Building GST analysis context via deterministic engines...")
+    analysis_context = _build_gst_analysis_context(request, question)
+    prompt = _build_prompt(analysis_context)
+    return _execute_gemini_analysis(prompt)
 
 
 def _safe_partial_recovery(
@@ -360,7 +486,7 @@ def _safe_partial_recovery(
         "tradeoffs": [
             TradeoffItem(**t) if isinstance(t, dict) else TradeoffItem(benefit=str(t), cost="")
             for t in parsed.get("tradeoffs", [])
-        ] or [TradeoffItem(benefit="Additional capacity", cost="Higher operating cost")],
+        ] or [TradeoffItem(benefit="Policy benefit", cost="Policy trade-off/cost")],
         "stress_findings": parsed.get("stress_findings", ["Stress findings unavailable."]),
         "assumption_warnings": parsed.get(
             "assumption_warnings",
@@ -381,7 +507,6 @@ def _safe_partial_recovery(
     try:
         return AIPolicyAnalysisResponse(**defaults)
     except Exception:
-        # Total recovery failure — raise the original error
         raise RuntimeError(
             "AI analysis returned an unstructured response that could not be parsed. "
             "Please try again."

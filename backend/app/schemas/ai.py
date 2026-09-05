@@ -1,14 +1,16 @@
 """
-AI Policy Analyst Schemas (Commit 7)
+AI Policy Analyst Schemas (Commit 7 & 8)
 
 Pydantic models for the Gemini-powered AI policy interpretation layer.
 Gemini receives validated deterministic results and returns structured
-natural-language insight. It never performs calculations.
+natural-language insight for both Bus and GST policy modules.
+It never performs calculations.
 """
 
-from typing import Optional, List
+from typing import Optional, List, Union
 from pydantic import BaseModel, Field
 from app.schemas.bus import BusSimulationRequest
+from app.schemas.gst import GSTSimulationRequest
 
 
 class AIPolicyAnalysisRequest(BaseModel):
@@ -17,9 +19,14 @@ class AIPolicyAnalysisRequest(BaseModel):
 
     The backend re-runs all deterministic engines from the policy inputs,
     so the frontend only needs to send the original policy configuration.
-    This prevents the frontend from injecting arbitrary calculated numbers.
+    Supports both 'bus' and 'gst' policy modules.
     """
-    policy: BusSimulationRequest
+    module: str = Field(
+        default="bus",
+        description="Policy domain module: 'bus' or 'gst'"
+    )
+    policy: Optional[Union[GSTSimulationRequest, BusSimulationRequest]] = None
+    gst_policy: Optional[GSTSimulationRequest] = None
     question: Optional[str] = Field(
         default=None,
         max_length=500,
@@ -53,7 +60,7 @@ class AIPolicyAnalysisResponse(BaseModel):
     risk_explanation: str = Field(
         description=(
             "Explanation of the overall policy risk score referencing the four "
-            "deterministic risk dimensions: financial, capacity, demand, utilization."
+            "deterministic risk dimensions of the evaluated domain."
         )
     )
     tradeoffs: List[TradeoffItem] = Field(
@@ -68,7 +75,7 @@ class AIPolicyAnalysisResponse(BaseModel):
     assumption_warnings: List[str] = Field(
         description=(
             "Important caveats about the assumptions used, including elasticity, "
-            "waiting-time models, and cost estimates."
+            "waiting-time models, compliance rates, or cost estimates."
         )
     )
     recommendations: List[str] = Field(
