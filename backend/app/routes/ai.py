@@ -8,6 +8,7 @@ this route only orchestrates the AI analysis on top of validated results.
 
 import logging
 from fastapi import APIRouter, HTTPException
+from starlette.concurrency import run_in_threadpool
 from app.schemas.ai import AIPolicyAnalysisRequest, AIPolicyAnalysisResponse
 from app.services.gemini_policy_analyst import analyze_bus_policy
 
@@ -31,7 +32,8 @@ async def analyze_policy(request: AIPolicyAnalysisRequest):
     Gemini interprets validated results — it does not calculate or modify metrics.
     """
     try:
-        result = analyze_bus_policy(
+        result = await run_in_threadpool(
+            analyze_bus_policy,
             request=request.policy,
             question=request.question,
         )

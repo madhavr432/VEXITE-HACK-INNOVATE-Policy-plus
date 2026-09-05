@@ -1021,9 +1021,16 @@ export function BusPage() {
                 const result = await analyzePolicy(params, question);
                 setAIAnalysisResult(result);
               } catch (err) {
-                const msg = err?.response?.data?.detail
-                  || err?.message
-                  || 'AI analysis is temporarily unavailable.';
+                let msg = 'AI analysis is temporarily unavailable.';
+                if (typeof err?.response?.data?.detail === 'string') {
+                  msg = err.response.data.detail;
+                } else if (err?.response?.status === 500) {
+                  msg = 'The AI service encountered a temporary server error. Please try again.';
+                } else if (err?.code === 'ECONNABORTED' || err?.message?.includes('timeout')) {
+                  msg = 'AI analysis timed out. The model took longer than expected to respond. Please try again.';
+                } else if (err?.message) {
+                  msg = err.message;
+                }
                 setAIError(msg);
               } finally {
                 setIsAILoading(false);

@@ -309,7 +309,7 @@ def analyze_bus_policy(
             ),
         )
 
-        raw_text = response.text.strip()
+        raw_text = (response.text or "").strip()
 
     except ValueError:
         # Re-raise API key errors as-is

@@ -1,0 +1,1 @@
+Start-Process -FilePath "npm.cmd" -ArgumentList "run","dev" -WorkingDirectory "C:\Policy-plus\frontend" -RedirectStandardOutput "C:\Policy-plus\.freebuff\preview-fd5f640e-870d-4b22-ac90-ee94de1bc39c.log" -RedirectStandardError "C:\Policy-plus\.freebuff\preview-fd5f640e-870d-4b22-ac90-ee94de1bc39c.log.err" -WindowStyle Hidden -PassThru | Select-Object -ExpandProperty Id

@@ -1,15 +1,15 @@
 import os
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 
 from app.schemas.health import HealthResponse
 from app.routes.bus import router as bus_router
 from app.routes.gst import router as gst_router
 from app.routes.ai import router as ai_router
 
-# Load environment variables
-load_dotenv()
+# Load environment variables (searches current directory and parent directories)
+load_dotenv(find_dotenv())
 
 app = FastAPI(
     title="PolicyForge API",
