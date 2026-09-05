@@ -108,20 +108,45 @@ export function GstAIAnalystSection({
             icon={isLoading ? Loader2 : Sparkles}
             className="font-semibold text-xs whitespace-nowrap"
           >
-            {isLoading ? 'Analyzing...' : 'Generate Analysis'}
+            {isLoading ? 'Analyzing policy trade-offs...' : 'Generate Analysis'}
           </Button>
         </form>
       </Card>
+
+      {/* AI DISCLAIMER */}
+      <div className="p-3 rounded-xl bg-violet-50/50 dark:bg-violet-950/20 border border-violet-200/60 dark:border-violet-800/40 flex items-start gap-2.5 text-xs text-violet-900 dark:text-violet-200">
+        <Sparkles className="w-4 h-4 text-violet-600 dark:text-violet-400 shrink-0 mt-0.5" />
+        <p className="leading-relaxed">
+          <strong>Gemini interprets validated Policy+ simulation results.</strong> It does not calculate policy metrics or make autonomous policy decisions.
+        </p>
+      </div>
+
+      {/* EMPTY STATE */}
+      {!analysisResult && !isLoading && !error && (
+        <Card className="border-dashed border-2 border-slate-200 dark:border-slate-800 p-8 text-center space-y-3">
+          <div className="mx-auto w-10 h-10 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+              No AI analysis yet.
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+              Run a simulation and click "Generate Analysis" to explore strategic fiscal trade-offs.
+            </p>
+          </div>
+        </Card>
+      )}
 
       {/* ERROR MESSAGE IF ANY */}
       {error && (
         <Card className="p-4 border-amber-500/40 bg-amber-500/5 text-amber-800 dark:text-amber-300 text-xs flex items-start gap-2.5">
           <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
           <div>
-            <div className="font-semibold">AI Analysis Notice</div>
+            <div className="font-semibold">AI analysis is currently unavailable.</div>
             <div>{error}</div>
             <div className="text-[11px] text-slate-500 mt-1">
-              Your deterministic simulation, scenario table, and risk metrics remain fully active above.
+              Your simulation, stress test and risk results are still available.
             </div>
           </div>
         </Card>
@@ -132,10 +157,10 @@ export function GstAIAnalystSection({
         <Card className="p-8 text-center space-y-3">
           <Loader2 className="w-7 h-7 text-ai-600 dark:text-ai-400 animate-spin mx-auto" />
           <div className="text-sm font-semibold text-slate-900 dark:text-white">
-            Gemini is evaluating validated GST simulation outputs...
+            Analyzing policy trade-offs...
           </div>
           <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
-            Structuring evidence-based trade-offs, elasticity sensitivities, and decision-support findings.
+            Gemini is interpreting your deterministic GST simulation results. Policy metrics are not being recalculated.
           </p>
         </Card>
       )}

@@ -19,6 +19,8 @@ import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { Card, CardHeader, CardContent } from '../components/Card';
 import { Badge } from '../components/Badge';
+import { PolicyDecisionSummary } from '../components/PolicyDecisionSummary';
+import { DataProvenanceDisclaimer } from '../components/DataProvenanceDisclaimer';
 
 // Bus domain components
 import { PolicyInput } from '../components/bus/PolicyInput';
@@ -179,9 +181,8 @@ export function BusPage() {
       setStressResult(stressResponse);
       setRiskResult(riskResponse);
       setIsBackendLive(true);
-    } catch (err) {
-      console.warn('Backend simulation unreachable, using fallback calculations:', err);
-      setApiError('Simulation service unavailable. Please make sure the Policy+ API is running.');
+    } catch {
+      setApiError('Unable to calculate the policy results. Please check the policy inputs and try again.');
       setIsBackendLive(false);
     } finally {
       setIsSimulating(false);
@@ -215,9 +216,8 @@ export function BusPage() {
       ]);
       setStressResult(stressResponse);
       setRiskResult(riskResponse);
-    } catch (err) {
-      console.warn('Backend stress test execution failed:', err);
-      setAttackError('Stress test engine unavailable. Ensure Policy+ backend is operational.');
+    } catch {
+      setAttackError('Unable to complete stress test evaluation. Please check policy inputs and try again.');
     } finally {
       setIsAttacking(false);
     }
@@ -245,9 +245,8 @@ export function BusPage() {
     try {
       const response = await getBusRisk(params);
       setRiskResult(response);
-    } catch (err) {
-      console.warn('Backend risk evaluation failed:', err);
-      setRiskError('Policy risk engine unavailable. Ensure Policy+ backend is operational.');
+    } catch {
+      setRiskError('Unable to calculate policy risk. Please check policy inputs and try again.');
     } finally {
       setIsRiskLoading(false);
     }
@@ -637,7 +636,7 @@ export function BusPage() {
                   {isSimulating ? (
                     <span className="flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Executing simulation engine...
+                      Running policy simulation...
                     </span>
                   ) : (
                     'Run Simulation →'
@@ -698,6 +697,40 @@ export function BusPage() {
               </span>
             </div>
           </div>
+
+          {/* POLICY DECISION SUMMARY (COMMIT 9) */}
+          <PolicyDecisionSummary
+            module="bus"
+            proposedPolicyTitle={`Increase bus fleet by ${fleetIncrease}%`}
+            riskLevel={riskResult?.risk_level || 'moderate'}
+            riskScore={riskResult?.overall_score ?? null}
+            primaryStrength={
+              simulationResult
+                ? (simulationResult.impact.waiting_time_percent <= 0
+                    ? `${Math.abs(simulationResult.impact.waiting_time_percent)}% lower wait time & +${simulationResult.impact.ridership_percent}% ridership`
+                    : `+${simulationResult.impact.capacity_percent}% additional service capacity`)
+                : 'Additional service capacity (+20%)'
+            }
+            primaryConcern={
+              simulationResult
+                ? (simulationResult.proposed.operating_surplus < simulationResult.current.operating_surplus
+                    ? `Daily operating surplus reduces by ₹${Math.abs(simulationResult.current.operating_surplus - simulationResult.proposed.operating_surplus).toLocaleString('en-IN')}`
+                    : `+${simulationResult.impact.operating_cost_percent}% fleet operational cost`)
+                : 'Reduced financial buffer'
+            }
+            stressPoint={
+              stressResult?.breaking_point
+                ? `${stressResult.breaking_point.scenario_name} (${stressResult.breaking_point.reason})`
+                : (stressResult?.worst_case ? 'High-demand & depot cost spikes' : 'High-demand conditions')
+            }
+            aiAssessment={aiAnalysisResult?.executive_summary}
+            hasAiAnalysis={Boolean(aiAnalysisResult)}
+            isAiLoading={isAILoading}
+            onTriggerAi={() => {
+              const el = document.getElementById('ai-analyst-section');
+              el?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          />
 
           {/* 6 CORE KPI CARDS */}
           <div className="space-y-2">
@@ -878,8 +911,19 @@ export function BusPage() {
             utilizationDelta={simulationResult ? `${simulationResult.impact.utilization_percent}%` : localPreview.impact.utilization.utilizationDelta}
           />
 
-          {/* MODEL ASSUMPTIONS & AUDIT TRAIL */}
+          {/* SIMULATION ASSUMPTIONS & AUDIT TRAIL */}
           <ModelAssumptions
+            currentFleet={currentBuses}
+            fleetIncrease={fleetIncrease}
+            dailyRidership={dailyPassengers}
+            busCapacity={busCapacity}
+            tripsPerBusPerDay={tripsPerBusPerDay}
+            ticketPrice={ticketPrice}
+            costPerBus={costPerBus}
+            currentWaitingTime={currentWaitingTime}
+            demandElasticity={demandElasticity}
+            emissionFactor={emissionFactor}
+            dailyFuelUse={dailyFuelUse}
             assumptions={simulationResult ? simulationResult.assumptions : {
               trips_per_bus_per_day: tripsPerBusPerDay,
               demand_elasticity: demandElasticity,
@@ -904,7 +948,7 @@ export function BusPage() {
                       ⚡ Attack My Policy & Stress Testing
                     </h2>
                     <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
-                      Systematically test the selected policy (+{fleetIncrease}% fleet) against adverse demand and cost pressure.
+                      We deliberately test your policy against adverse conditions to identify where it becomes vulnerable.
                     </p>
                   </div>
                 </div>
@@ -1039,6 +1083,9 @@ export function BusPage() {
             selectedFleetIncrease={parseFloat(fleetIncrease) || 0}
             disabled={!isValid}
           />
+
+          {/* DATA PROVENANCE & INSTITUTIONAL DISCLAIMER (COMMIT 9) */}
+          <DataProvenanceDisclaimer />
         </div>
       </div>
     </div>

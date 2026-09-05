@@ -22,6 +22,8 @@ import { PageHeader } from '../components/PageHeader';
 import { Button } from '../components/Button';
 import { Card, CardHeader, CardContent } from '../components/Card';
 import { Badge } from '../components/Badge';
+import { PolicyDecisionSummary } from '../components/PolicyDecisionSummary';
+import { DataProvenanceDisclaimer } from '../components/DataProvenanceDisclaimer';
 
 // Modular GST domain components
 import { GstMetricCard } from '../components/gst/GstMetricCard';
@@ -159,12 +161,8 @@ export function GstPage() {
           // Non-blocking
         }
       }
-    } catch (err) {
-      console.error('GST simulation failed:', err);
-      setApiError(
-        err.response?.data?.detail ||
-        'Failed to connect to the GST simulation backend. Please ensure the backend server is running.'
-      );
+    } catch {
+      setApiError('Unable to calculate the policy results. Please check the policy inputs and try again.');
     } finally {
       setIsSimulating(false);
     }
@@ -183,9 +181,8 @@ export function GstPage() {
     try {
       const data = await runGstStressTest(getParams());
       setStressResult(data);
-    } catch (err) {
-      console.error('GST stress test failed:', err);
-      setApiError('Adverse stress test failed to complete.');
+    } catch {
+      setApiError('Unable to complete stress test evaluation. Please check policy inputs and try again.');
     } finally {
       setIsAttacking(false);
     }
@@ -199,12 +196,8 @@ export function GstPage() {
     try {
       const result = await analyzePolicy(getParams(), question, 'gst');
       setAIAnalysisResult(result);
-    } catch (err) {
-      console.error('AI analysis failed:', err);
-      setAIError(
-        err.response?.data?.detail ||
-        'AI analysis is temporarily unavailable. Your deterministic simulation and risk metrics remain fully active.'
-      );
+    } catch {
+      setAIError('AI analysis is currently unavailable. Your simulation, stress test and risk results are still available.');
     } finally {
       setIsAILoading(false);
     }
@@ -450,7 +443,7 @@ export function GstPage() {
                   icon={isSimulating ? Loader2 : Play}
                   className="w-full font-semibold shadow-soft-sm"
                 >
-                  {isSimulating ? 'Simulating GST Yield...' : 'Run Fiscal Simulation →'}
+                  {isSimulating ? 'Running policy simulation...' : 'Run Fiscal Simulation →'}
                 </Button>
 
                 <Button
@@ -472,6 +465,40 @@ export function GstPage() {
         {/* RIGHT COLUMN: SIMULATION RESULTS & ADVANCED ENGINES                       */}
         {/* ========================================================================= */}
         <div className="lg:col-span-8 space-y-10">
+          {/* POLICY DECISION SUMMARY (COMMIT 9) */}
+          <PolicyDecisionSummary
+            module="gst"
+            proposedPolicyTitle={`Adjust standard GST slab to ${proposedRate}% (Current: ${currentRate}%)`}
+            riskLevel={riskResult?.risk_level || (simulationResult ? 'moderate' : 'low')}
+            riskScore={riskResult?.overall_score ?? null}
+            primaryStrength={
+              simulationResult
+                ? (simulationResult.impact.net_revenue_percent >= 0
+                    ? `+${simulationResult.impact.net_revenue_percent}% net revenue gain (${formatInrCrores(simulationResult.impact.net_revenue_change)})`
+                    : `Rate reduction boosts consumer surplus & purchasing power`)
+                : 'Revenue stability & compliance'
+            }
+            primaryConcern={
+              simulationResult
+                ? (simulationResult.impact.net_revenue_percent < 0
+                    ? `Net revenue shortfall of ${formatInrCrores(Math.abs(simulationResult.impact.net_revenue_change))}`
+                    : `Compliance elasticity & MSME filing overhead`)
+                : 'Compliance elasticity'
+            }
+            stressPoint={
+              stressResult?.breaking_point
+                ? `${stressResult.breaking_point.scenario_name} (${stressResult.breaking_point.reason})`
+                : (stressResult?.worst_case ? 'Stagflation / compliance shock' : 'Adverse economic shock')
+            }
+            aiAssessment={aiAnalysisResult?.executive_summary}
+            hasAiAnalysis={Boolean(aiAnalysisResult)}
+            isAiLoading={isAILoading}
+            onTriggerAi={() => {
+              const el = document.getElementById('gst-ai-section');
+              el?.scrollIntoView({ behavior: 'smooth' });
+            }}
+          />
+
           {/* 1. TOP SIMULATION METRIC KPI CARDS */}
           {simulationResult && (
             <div className="space-y-4">
@@ -567,6 +594,9 @@ export function GstPage() {
             demandElasticity={demandElasticity}
             effectiveTaxBaseFactor={effectiveTaxBaseFactor}
           />
+
+          {/* DATA PROVENANCE & INSTITUTIONAL DISCLAIMER (COMMIT 9) */}
+          <DataProvenanceDisclaimer />
         </div>
       </div>
     </div>

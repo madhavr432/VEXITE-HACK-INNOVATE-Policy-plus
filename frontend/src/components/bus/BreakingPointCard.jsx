@@ -66,7 +66,7 @@ export function BreakingPointCard({
               <h4 className="text-base sm:text-lg font-bold text-slate-900 dark:text-white tracking-tight">
                 {hasBreached ? (
                   <span>
-                    Breaking Point Identified: <span className="font-extrabold">{breakingPoint.scenario_name}</span>
+                    First Problematic Tested Scenario: <span className="font-extrabold">{breakingPoint.scenario_name}</span>
                   </span>
                 ) : (
                   <span>Policy Survived All Tested Scenarios</span>
@@ -91,26 +91,29 @@ export function BreakingPointCard({
               </p>
 
               {hasBreached && (
-                <div className="pt-2 flex flex-wrap items-center gap-3 text-xs font-mono">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 shadow-soft-xs">
-                    <span className="text-slate-400">Demand Stress:</span>
-                    <span className="font-bold">
-                      {breakingPoint.demand_multiplier > 1.0
-                        ? `+${Math.round((breakingPoint.demand_multiplier - 1.0) * 100)}%`
-                        : 'Baseline (0%)'}
-                    </span>
+                <div className="pt-2 space-y-2">
+                  <div className="flex flex-wrap items-center gap-3 text-xs font-mono">
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 shadow-soft-xs">
+                      <span className="text-slate-400">Demand Stress:</span>
+                      <span className="font-bold">
+                        {breakingPoint.demand_multiplier > 1.0
+                          ? `+${Math.round((breakingPoint.demand_multiplier - 1.0) * 100)}%`
+                          : 'Baseline (0%)'}
+                      </span>
+                    </div>
+                    <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 shadow-soft-xs">
+                      <span className="text-slate-400">Cost Stress:</span>
+                      <span className="font-bold">
+                        {breakingPoint.cost_multiplier > 1.0
+                          ? `+${Math.round((breakingPoint.cost_multiplier - 1.0) * 100)}%`
+                          : 'Baseline (0%)'}
+                      </span>
+                    </div>
                   </div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 shadow-soft-xs">
-                    <span className="text-slate-400">Cost Stress:</span>
-                    <span className="font-bold">
-                      {breakingPoint.cost_multiplier > 1.0
-                        ? `+${Math.round((breakingPoint.cost_multiplier - 1.0) * 100)}%`
-                        : 'Baseline (0%)'}
-                    </span>
-                  </div>
-                  <span className="text-[11px] text-slate-400 dark:text-slate-500 italic">
-                    *Breaking point within tested scenarios only.
-                  </span>
+
+                  <p className="text-[11px] text-amber-700 dark:text-amber-300 bg-amber-500/10 border border-amber-500/20 px-2.5 py-1 rounded-lg">
+                    This is the first problematic scenario among the conditions tested; it is not a guaranteed real-world breaking point.
+                  </p>
                 </div>
               )}
             </div>

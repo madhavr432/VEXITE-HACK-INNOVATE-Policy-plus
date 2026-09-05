@@ -35,6 +35,7 @@ export function ScenarioCaseCards({
   const cases = [
     {
       data: bestCase,
+      badgeLabel: 'BEST CASE',
       theme: {
         border: 'border-emerald-200 dark:border-emerald-900/60',
         bg: 'bg-emerald-50/20 dark:bg-emerald-950/10',
@@ -47,6 +48,7 @@ export function ScenarioCaseCards({
     },
     {
       data: expectedCase,
+      badgeLabel: 'EXPECTED CASE',
       theme: {
         border: 'border-sky-200 dark:border-sky-900/60',
         bg: 'bg-sky-50/20 dark:bg-sky-950/10',
@@ -59,6 +61,7 @@ export function ScenarioCaseCards({
     },
     {
       data: worstCase,
+      badgeLabel: 'WORST TESTED CASE',
       theme: {
         border: 'border-rose-200 dark:border-rose-900/60',
         bg: 'bg-rose-50/20 dark:bg-rose-950/10',
@@ -88,7 +91,7 @@ export function ScenarioCaseCards({
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {cases.map(({ data, theme, icon: Icon, subtitle }) => {
+        {cases.map(({ data, badgeLabel, theme, icon: Icon, subtitle }) => {
           const res = data.results;
           const isSurplusDeficit = res.operating_surplus < 0;
 
@@ -116,8 +119,8 @@ export function ScenarioCaseCards({
                       </p>
                     </div>
                   </div>
-                  <Badge variant={theme.badge} size="sm">
-                    {data.case_type.toUpperCase()}
+                  <Badge variant={theme.badge} size="sm" className="font-mono font-bold tracking-tight text-[10px]">
+                    {badgeLabel || data.case_type.toUpperCase()}
                   </Badge>
                 </div>
               </CardHeader>

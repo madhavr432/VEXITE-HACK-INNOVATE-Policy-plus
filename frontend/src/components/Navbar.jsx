@@ -17,9 +17,9 @@ export function Navbar() {
 
   const navItems = [
     { to: '/', label: 'Overview', exact: true },
-    { to: '/bus', label: 'Bus Policies' },
-    { to: '/gst', label: 'GST Policies' },
-    { to: '/#intelligence', label: 'Intelligence' },
+    { to: '/bus', label: '🚌 Bus' },
+    { to: '/gst', label: '🧾 GST' },
+    { to: '/intelligence', label: '✦ Intelligence' },
   ];
 
   const closeMobile = () => setMobileMenuOpen(false);

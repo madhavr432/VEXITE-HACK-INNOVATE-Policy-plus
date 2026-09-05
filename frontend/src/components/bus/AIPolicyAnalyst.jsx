@@ -198,18 +198,43 @@ export function AIPolicyAnalyst({
         </CardContent>
       </Card>
 
+      {/* ─── AI Policy Disclaimer ────────────────────────────────────────── */}
+      <div className="p-3 rounded-xl bg-violet-50/50 dark:bg-violet-950/20 border border-violet-200/60 dark:border-violet-800/40 flex items-start gap-2.5 text-xs text-violet-900 dark:text-violet-200">
+        <Sparkles className="w-4 h-4 text-violet-600 dark:text-violet-400 shrink-0 mt-0.5" />
+        <p className="leading-relaxed">
+          <strong>Gemini interprets validated Policy+ simulation results.</strong> It does not calculate policy metrics or make autonomous policy decisions.
+        </p>
+      </div>
+
+      {/* ─── Empty State ─────────────────────────────────────────────────── */}
+      {!analysisResult && !isLoading && !error && (
+        <Card className="border-dashed border-2 border-slate-200 dark:border-slate-800 p-8 text-center space-y-3">
+          <div className="mx-auto w-10 h-10 rounded-xl bg-violet-500/10 text-violet-600 dark:text-violet-400 flex items-center justify-center">
+            <Sparkles className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <h4 className="text-sm font-bold text-slate-800 dark:text-slate-200">
+              No AI analysis yet.
+            </h4>
+            <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+              Run a simulation and click "Analyze with Gemini" to explore strategic trade-offs.
+            </p>
+          </div>
+        </Card>
+      )}
+
       {/* ─── Error State ─────────────────────────────────────────────────── */}
       {error && !isLoading && (
         <div className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 p-4 space-y-1.5">
           <div className="flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-200">
             <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
-            <span>AI analysis is temporarily unavailable.</span>
+            <span>AI analysis is currently unavailable.</span>
           </div>
           <p className="text-xs text-amber-700 dark:text-amber-300 ml-6 leading-relaxed">
             {error}
           </p>
           <p className="text-xs text-amber-600 dark:text-amber-400 ml-6">
-            Your deterministic simulation and risk results are still fully available above.
+            Your simulation, stress test and risk results are still available.
           </p>
           <div className="ml-6 pt-1">
             <Button size="sm" variant="secondary" onClick={handleAnalyze} className="text-xs">

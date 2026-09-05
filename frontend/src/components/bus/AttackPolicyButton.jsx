@@ -33,7 +33,7 @@ export function AttackPolicyButton({
         {isLoading ? (
           <span className="flex items-center gap-2">
             <Loader2 className="w-4 h-4 animate-spin" />
-            <span>Attacking Policy...</span>
+            <span>Stress-testing your policy...</span>
           </span>
         ) : (
           <span className="flex items-center gap-1.5">
