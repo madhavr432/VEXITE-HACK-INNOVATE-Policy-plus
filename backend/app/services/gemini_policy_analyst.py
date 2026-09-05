@@ -299,12 +299,12 @@ def analyze_bus_policy(
         client = genai.Client(api_key=api_key)
 
         response = client.models.generate_content(
-            model="gemini-3.6-flash",
+            model="gemini-2.5-flash",
             contents=prompt,
             config=genai_types.GenerateContentConfig(
                 system_instruction=_SYSTEM_INSTRUCTION,
                 temperature=0.3,          # Low temp for analytical consistency
-                max_output_tokens=2048,
+                max_output_tokens=8192,
                 response_mime_type="application/json",
             ),
         )
