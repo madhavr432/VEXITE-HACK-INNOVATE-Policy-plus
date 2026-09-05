@@ -39,6 +39,7 @@ import { ScenarioCaseCards } from '../components/bus/ScenarioCaseCards';
 import { StressScenarioTable } from '../components/bus/StressScenarioTable';
 import { CaseComparisonChart } from '../components/bus/CaseComparisonChart';
 import { StressStatusSummary } from '../components/bus/StressStatusSummary';
+import { PolicyRiskSection } from '../components/bus/PolicyRiskSection';
 
 // Demo data & backend simulation service
 import {
@@ -50,6 +51,7 @@ import {
   runBusSimulation,
   getBusScenarios,
   runBusStressTest,
+  getBusRisk,
   formatInrLakhs,
   formatPaxK,
 } from '../services/busSimulation';
@@ -85,6 +87,11 @@ export function BusPage() {
   const [isAttacking, setIsAttacking] = useState(false);
   const [stressResult, setStressResult] = useState(null);
   const [attackError, setAttackError] = useState(null);
+
+  // Deterministic Policy Risk Engine State (Commit 6)
+  const [isRiskLoading, setIsRiskLoading] = useState(false);
+  const [riskResult, setRiskResult] = useState(null);
+  const [riskError, setRiskError] = useState(null);
 
   // Inline Validation States
   const validationErrors = useMemo(() => {
@@ -137,7 +144,9 @@ export function BusPage() {
     if (!isValid && !overrideParams) return;
 
     setIsSimulating(true);
+    setIsRiskLoading(true);
     setApiError(null);
+    setRiskError(null);
 
     const params = overrideParams || {
       currentBuses,
@@ -152,14 +161,16 @@ export function BusPage() {
     };
 
     try {
-      const [simResponse, scenResponse, stressResponse] = await Promise.all([
+      const [simResponse, scenResponse, stressResponse, riskResponse] = await Promise.all([
         runBusSimulation(params),
         getBusScenarios(params),
         runBusStressTest(params),
+        getBusRisk(params),
       ]);
       setSimulationResult(simResponse);
       setScenariosResult(scenResponse);
       setStressResult(stressResponse);
+      setRiskResult(riskResponse);
       setIsBackendLive(true);
     } catch (err) {
       console.warn('Backend simulation unreachable, using fallback calculations:', err);
@@ -167,6 +178,7 @@ export function BusPage() {
       setIsBackendLive(false);
     } finally {
       setIsSimulating(false);
+      setIsRiskLoading(false);
     }
   };
 
@@ -190,13 +202,47 @@ export function BusPage() {
     };
 
     try {
-      const response = await runBusStressTest(params);
-      setStressResult(response);
+      const [stressResponse, riskResponse] = await Promise.all([
+        runBusStressTest(params),
+        getBusRisk(params),
+      ]);
+      setStressResult(stressResponse);
+      setRiskResult(riskResponse);
     } catch (err) {
       console.warn('Backend stress test execution failed:', err);
       setAttackError('Stress test engine unavailable. Ensure Policy+ backend is operational.');
     } finally {
       setIsAttacking(false);
+    }
+  };
+
+  // Dedicated Policy Risk evaluation
+  const executeRiskEvaluation = async (overrideParams = null) => {
+    if (!isValid && !overrideParams) return;
+
+    setIsRiskLoading(true);
+    setRiskError(null);
+
+    const params = overrideParams || {
+      currentBuses,
+      fleetIncrease,
+      dailyPassengers,
+      busCapacity,
+      ticketPrice,
+      costPerBus,
+      tripsPerBusPerDay,
+      currentWaitingTime,
+      demandElasticity,
+    };
+
+    try {
+      const response = await getBusRisk(params);
+      setRiskResult(response);
+    } catch (err) {
+      console.warn('Backend risk evaluation failed:', err);
+      setRiskError('Policy risk engine unavailable. Ensure Policy+ backend is operational.');
+    } finally {
+      setIsRiskLoading(false);
     }
   };
 
@@ -930,6 +976,17 @@ export function BusPage() {
               </Card>
             )}
           </div>
+
+          {/* ========================================================================= */}
+          {/* SECTION: DETERMINISTIC POLICY RISK ENGINE (COMMIT 6)                     */}
+          {/* ========================================================================= */}
+          <PolicyRiskSection
+            riskResult={riskResult}
+            isLoading={isRiskLoading}
+            error={riskError}
+            onRefresh={() => executeRiskEvaluation()}
+            selectedFleetIncrease={parseFloat(fleetIncrease) || 0}
+          />
         </div>
       </div>
     </div>

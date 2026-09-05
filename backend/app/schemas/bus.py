@@ -255,3 +255,36 @@ class BusStressTestResponse(BaseModel):
     attack_summary: AttackSummary
     assumptions: StressTestAssumptions
 
+
+class RiskComponentDetail(BaseModel):
+    """
+    Evaluation details for an individual deterministic risk dimension.
+    """
+    name: str
+    dimension: str  # "financial" | "capacity" | "demand" | "utilization"
+    score: float
+    weight: float
+    weighted_score: float
+    level: str  # "low" | "moderate" | "high" | "critical"
+    level_label: str
+    primary_reason: str
+    metric_label: str
+    metric_value: str
+
+
+class BusRiskResponse(BaseModel):
+    """
+    Comprehensive deterministic policy risk evaluation response (Commit 6).
+    Designed to be directly consumable by downstream AI policy interpretation (Commit 7).
+    """
+    overall_score: int
+    risk_level: str  # "low" | "moderate" | "high" | "critical"
+    risk_level_label: str
+    components: Dict[str, RiskComponentDetail]
+    top_risk_drivers: List[str]
+    deterministic_reasons: List[str]
+    policy_verdict: str
+    selected_policy: PolicyOverview
+    key_metrics: Dict[str, Any]
+    assumptions: Dict[str, Any]
+

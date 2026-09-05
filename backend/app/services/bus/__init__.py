@@ -10,6 +10,14 @@ from app.services.bus.stress_test import (
     CASE_CONFIGS,
     evaluate_scenario_status,
 )
+from app.services.bus.risk import (
+    calculate_bus_policy_risk,
+    FINANCIAL_WEIGHT,
+    CAPACITY_WEIGHT,
+    DEMAND_WEIGHT,
+    UTILIZATION_WEIGHT,
+    classify_risk_level,
+)
 
 __all__ = [
     "simulate_bus_policy",
@@ -20,5 +28,11 @@ __all__ = [
     "DEFAULT_STRESS_SCENARIOS",
     "CASE_CONFIGS",
     "evaluate_scenario_status",
+    "calculate_bus_policy_risk",
+    "FINANCIAL_WEIGHT",
+    "CAPACITY_WEIGHT",
+    "DEMAND_WEIGHT",
+    "UTILIZATION_WEIGHT",
+    "classify_risk_level",
 ]
 

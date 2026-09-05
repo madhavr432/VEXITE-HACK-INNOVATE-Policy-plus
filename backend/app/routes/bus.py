@@ -5,10 +5,12 @@ from app.schemas.bus import (
     BusSimulationResponse,
     BusScenariosResponse,
     BusStressTestResponse,
+    BusRiskResponse,
 )
 from app.services.bus.simulation import simulate_bus_policy
 from app.services.bus.scenarios import generate_bus_scenarios
 from app.services.bus.stress_test import run_bus_stress_test
+from app.services.bus.risk import calculate_bus_policy_risk
 
 router = APIRouter(prefix="/api/bus", tags=["bus"])
 
@@ -72,4 +74,24 @@ async def stress_test_bus(request: BusSimulationRequest):
             status_code=500,
             detail=f"Stress test computation failed: {str(e)}"
         )
+
+
+@router.post("/risk", response_model=BusRiskResponse)
+async def evaluate_bus_risk(request: BusSimulationRequest):
+    """
+    Execute Deterministic Policy Risk Engine assessment (Commit 6).
+    Reuses the validated simulation engine and stress-test engine outputs
+    to evaluate Financial Risk (30%), Capacity Risk (25%), Demand Risk (20%),
+    and Utilization Risk (25%) into an overall Policy Risk Score (0-100),
+    identifies top risk drivers, and generates transparent rule-based reasons and verdict.
+    """
+    try:
+        results = calculate_bus_policy_risk(request)
+        return results
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Policy risk computation failed: {str(e)}"
+        )
+
 
