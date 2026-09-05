@@ -4,9 +4,11 @@ from app.schemas.bus import (
     BusSimulationRequest,
     BusSimulationResponse,
     BusScenariosResponse,
+    BusStressTestResponse,
 )
 from app.services.bus.simulation import simulate_bus_policy
 from app.services.bus.scenarios import generate_bus_scenarios
+from app.services.bus.stress_test import run_bus_stress_test
 
 router = APIRouter(prefix="/api/bus", tags=["bus"])
 
@@ -52,3 +54,22 @@ async def simulate_bus_scenarios(request: BusSimulationRequest):
             status_code=500,
             detail=f"Scenario generation failed: {str(e)}"
         )
+
+
+@router.post("/stress-test", response_model=BusStressTestResponse)
+async def stress_test_bus(request: BusSimulationRequest):
+    """
+    Execute Attack My Policy stress testing against the user's selected policy.
+    Evaluates adverse demand surge and operating cost inflation scenarios,
+    determines Best/Expected/Worst bounds, flags rule-based stability thresholds,
+    and identifies the breaking point within tested scenarios.
+    """
+    try:
+        results = run_bus_stress_test(request)
+        return results
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Stress test computation failed: {str(e)}"
+        )
+

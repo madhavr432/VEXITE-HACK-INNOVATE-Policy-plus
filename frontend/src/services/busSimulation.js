@@ -78,6 +78,29 @@ export async function getBusScenarios(params) {
 }
 
 /**
+ * Execute deterministic Attack My Policy stress testing via FastAPI backend.
+ *
+ * @param {Object} params - Policy intervention parameters including selected fleet increase
+ * @returns {Promise<Object>} Backend stress test response with scenarios, cases, breaking point
+ */
+export async function runBusStressTest(params) {
+  const payload = {
+    current_fleet: parseInt(params.currentBuses, 10) || 100,
+    fleet_increase_percent: parseFloat(params.fleetIncrease) || 0,
+    daily_ridership: parseFloat(params.dailyPassengers) || 0,
+    capacity_per_bus: parseInt(params.busCapacity, 10) || 50,
+    average_ticket_price: parseFloat(params.ticketPrice) || 0,
+    operating_cost_per_bus: parseFloat(params.costPerBus) || 0,
+    trips_per_bus_per_day: parseFloat(params.tripsPerBusPerDay ?? 10.0),
+    current_waiting_time_minutes: parseFloat(params.currentWaitingTime ?? 14.0),
+    demand_elasticity: parseFloat(params.demandElasticity ?? 0.25),
+  };
+
+  const response = await api.post('/api/bus/stress-test', payload);
+  return response.data;
+}
+
+/**
  * Fetch available baseline scenario presets
  */
 export async function getBusPresets() {
@@ -87,8 +110,10 @@ export async function getBusPresets() {
 export default {
   runBusSimulation,
   getBusScenarios,
+  runBusStressTest,
   getBusPresets,
   formatInrLakhs,
   formatPaxK,
 };
+
 

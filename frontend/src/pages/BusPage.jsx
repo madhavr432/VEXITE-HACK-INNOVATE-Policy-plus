@@ -12,6 +12,7 @@ import {
   TrendingUp,
   Coins,
   Leaf,
+  Zap,
 } from 'lucide-react';
 
 import { PageHeader } from '../components/PageHeader';
@@ -31,8 +32,13 @@ import { TradeoffChart } from '../components/bus/TradeoffChart';
 import { SensitivitySummary } from '../components/bus/SensitivitySummary';
 import { SystemScale } from '../components/bus/SystemScale';
 import { ImpactSummary } from '../components/bus/ImpactSummary';
-import { StressTestPreview } from '../components/bus/StressTestPreview';
 import { ModelAssumptions } from '../components/bus/ModelAssumptions';
+import { AttackPolicyButton } from '../components/bus/AttackPolicyButton';
+import { BreakingPointCard } from '../components/bus/BreakingPointCard';
+import { ScenarioCaseCards } from '../components/bus/ScenarioCaseCards';
+import { StressScenarioTable } from '../components/bus/StressScenarioTable';
+import { CaseComparisonChart } from '../components/bus/CaseComparisonChart';
+import { StressStatusSummary } from '../components/bus/StressStatusSummary';
 
 // Demo data & backend simulation service
 import {
@@ -43,6 +49,7 @@ import {
 import {
   runBusSimulation,
   getBusScenarios,
+  runBusStressTest,
   formatInrLakhs,
   formatPaxK,
 } from '../services/busSimulation';
@@ -73,6 +80,11 @@ export function BusPage() {
   const [scenariosResult, setScenariosResult] = useState(null);
   const [apiError, setApiError] = useState(null);
   const [isBackendLive, setIsBackendLive] = useState(true);
+
+  // Attack My Policy / Stress Testing State (Commit 5)
+  const [isAttacking, setIsAttacking] = useState(false);
+  const [stressResult, setStressResult] = useState(null);
+  const [attackError, setAttackError] = useState(null);
 
   // Inline Validation States
   const validationErrors = useMemo(() => {
@@ -140,12 +152,14 @@ export function BusPage() {
     };
 
     try {
-      const [simResponse, scenResponse] = await Promise.all([
+      const [simResponse, scenResponse, stressResponse] = await Promise.all([
         runBusSimulation(params),
         getBusScenarios(params),
+        runBusStressTest(params),
       ]);
       setSimulationResult(simResponse);
       setScenariosResult(scenResponse);
+      setStressResult(stressResponse);
       setIsBackendLive(true);
     } catch (err) {
       console.warn('Backend simulation unreachable, using fallback calculations:', err);
@@ -153,6 +167,36 @@ export function BusPage() {
       setIsBackendLive(false);
     } finally {
       setIsSimulating(false);
+    }
+  };
+
+  // Dedicated Attack My Policy execution
+  const executeStressTest = async (overrideParams = null) => {
+    if (!isValid && !overrideParams) return;
+
+    setIsAttacking(true);
+    setAttackError(null);
+
+    const params = overrideParams || {
+      currentBuses,
+      fleetIncrease,
+      dailyPassengers,
+      busCapacity,
+      ticketPrice,
+      costPerBus,
+      tripsPerBusPerDay,
+      currentWaitingTime,
+      demandElasticity,
+    };
+
+    try {
+      const response = await runBusStressTest(params);
+      setStressResult(response);
+    } catch (err) {
+      console.warn('Backend stress test execution failed:', err);
+      setAttackError('Stress test engine unavailable. Ensure Policy+ backend is operational.');
+    } finally {
+      setIsAttacking(false);
     }
   };
 
@@ -528,7 +572,7 @@ export function BusPage() {
               </div>
 
               {/* ACTION BUTTONS */}
-              <div className="pt-2 space-y-2">
+              <div className="pt-2 space-y-2.5">
                 <Button
                   onClick={() => executeSimulation()}
                   disabled={!isValid || isSimulating}
@@ -546,6 +590,13 @@ export function BusPage() {
                     'Run Simulation →'
                   )}
                 </Button>
+
+                <AttackPolicyButton
+                  onClick={() => executeStressTest()}
+                  isLoading={isAttacking}
+                  disabled={!isValid}
+                  className="w-full"
+                />
 
                 <div className="text-center">
                   <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
@@ -785,18 +836,100 @@ export function BusPage() {
             }}
           />
 
-          {/* STRESS TEST PREVIEW ENVELOPE */}
-          <StressTestPreview
-            onSelectEnvelopeScenario={(type) => {
-              if (type === 'stress') {
-                handleSelectScenario('stress');
-              } else if (type === 'best') {
-                handleSelectScenario('proposed');
-              } else {
-                handleSelectScenario('baseline');
-              }
-            }}
-          />
+          {/* ========================================================================= */}
+          {/* SECTION: ATTACK MY POLICY & STRESS TESTING (COMMIT 5)                      */}
+          {/* ========================================================================= */}
+          <div id="stress-test-section" className="space-y-6 pt-6 border-t border-slate-200/80 dark:border-slate-800">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2.5">
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-amber-500 to-rose-600 text-white flex items-center justify-center shadow-soft-xs">
+                    <Zap className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
+                      ⚡ Attack My Policy & Stress Testing
+                    </h2>
+                    <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400">
+                      Systematically test the selected policy (+{fleetIncrease}% fleet) against adverse demand and cost pressure.
+                    </p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2.5">
+                <AttackPolicyButton
+                  onClick={() => executeStressTest()}
+                  isLoading={isAttacking}
+                  disabled={!isValid}
+                />
+              </div>
+            </div>
+
+            {attackError && (
+              <div className="rounded-xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 p-3.5 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between">
+                <span>{attackError}</span>
+                <Button size="sm" variant="secondary" onClick={() => executeStressTest()}>
+                  Retry Attack
+                </Button>
+              </div>
+            )}
+
+            {/* 1. Breaking Point Assessment Card */}
+            {stressResult && (
+              <BreakingPointCard
+                breakingPoint={stressResult.breaking_point}
+                selectedFleetIncrease={parseFloat(fleetIncrease) || 0}
+              />
+            )}
+
+            {/* 2. Stress Scenario Health Distribution Summary */}
+            {stressResult && (
+              <StressStatusSummary attackSummary={stressResult.attack_summary} />
+            )}
+
+            {/* 3. Outcome Envelope Bounds: Best vs Expected vs Worst */}
+            {stressResult && (
+              <ScenarioCaseCards
+                bestCase={stressResult.best_case}
+                expectedCase={stressResult.expected_case}
+                worstCase={stressResult.worst_case}
+              />
+            )}
+
+            {/* 4. Comparative Recharts Bar Chart */}
+            {stressResult && (
+              <CaseComparisonChart
+                bestCase={stressResult.best_case}
+                expectedCase={stressResult.expected_case}
+                worstCase={stressResult.worst_case}
+              />
+            )}
+
+            {/* 5. Adverse Scenarios Matrix Table */}
+            {stressResult && (
+              <StressScenarioTable
+                scenarios={stressResult.stress_scenarios}
+              />
+            )}
+
+            {/* 6. Stress Assumptions Audit Trail */}
+            {stressResult && (
+              <Card className="border border-slate-200/90 dark:border-slate-800 shadow-soft-xs bg-slate-50/50 dark:bg-slate-900/40">
+                <CardContent className="p-4 space-y-2 text-xs">
+                  <div className="flex items-center gap-2 font-mono font-bold text-slate-800 dark:text-slate-200 uppercase tracking-wider text-[11px]">
+                    <Info className="w-3.5 h-3.5 text-policy-600 dark:text-policy-400" />
+                    <span>Stress Testing Audit Trail & Multipliers</span>
+                  </div>
+                  <p className="text-slate-600 dark:text-slate-400 leading-relaxed">
+                    Adverse scenarios evaluate predefined multipliers: Demand (+10%, +20%, +30%, +25% combined) and Operating Cost (+10%, +20%).
+                    The Expected Case strictly matches the standard simulation of the selected policy. The Worst Tested Case reflects compounded peak stress (+25% demand surge, +20% depot cost inflation).
+                    All evaluations are deterministic and derived from the underlying mathematical simulation engine.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
+          </div>
         </div>
       </div>
     </div>

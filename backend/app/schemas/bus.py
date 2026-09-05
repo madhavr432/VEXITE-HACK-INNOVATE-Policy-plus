@@ -174,3 +174,84 @@ class BusScenariosResponse(BaseModel):
     selected_scenario: SelectedScenario
     scenarios: List[ScenarioItem]
     assumptions: SimulationAssumptions
+
+
+class StressScenarioItem(BaseModel):
+    """
+    Detailed results for a single deterministic adverse condition.
+    """
+    id: str
+    name: str
+    description: str
+    demand_multiplier: float
+    cost_multiplier: float
+    results: SimulationMetrics
+    status: str  # "stable" | "warning" | "critical"
+    status_reasons: List[str] = Field(default_factory=list)
+    waiting_time_delta_percent: float
+    operating_cost_delta_percent: float
+    surplus_delta_percent: float
+
+
+class CaseScenarioResult(BaseModel):
+    """
+    Result metrics for Best / Expected / Worst case evaluations.
+    """
+    case_type: str  # "best" | "expected" | "worst"
+    name: str
+    description: str
+    demand_multiplier: float
+    cost_multiplier: float
+    results: SimulationMetrics
+    impact_vs_baseline: SimulationImpact
+
+
+class BreakingPoint(BaseModel):
+    """
+    First problematic condition encountered within tested stress scenarios.
+    """
+    scenario_id: str
+    scenario_name: str
+    status: str  # "critical" | "warning"
+    demand_multiplier: float
+    cost_multiplier: float
+    reason: str
+
+
+class AttackSummary(BaseModel):
+    """
+    Deterministic summary metrics of stress test run.
+    """
+    scenarios_tested: int
+    stable_scenarios: int
+    warning_scenarios: int
+    critical_scenarios: int
+    policy_survives_all_tests: bool
+
+
+class StressTestAssumptions(BaseModel):
+    """
+    Audit trail for stress test assumptions and rule thresholds.
+    """
+    demand_scenarios: List[str]
+    cost_scenarios: List[str]
+    best_case: Dict[str, Any]
+    expected_case: Dict[str, Any]
+    worst_case: Dict[str, Any]
+    thresholds: Dict[str, Any]
+
+
+class BusStressTestResponse(BaseModel):
+    """
+    Comprehensive Attack My Policy response.
+    """
+    selected_policy: PolicyOverview
+    baseline: SimulationMetrics
+    best_case: CaseScenarioResult
+    expected_case: CaseScenarioResult
+    worst_case: CaseScenarioResult
+    stress_scenarios: List[StressScenarioItem]
+    breaking_point: Optional[BreakingPoint] = None
+    attack_summary: AttackSummary
+    assumptions: StressTestAssumptions
+
