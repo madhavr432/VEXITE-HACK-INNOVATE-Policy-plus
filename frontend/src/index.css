@@ -1,0 +1,102 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    color-scheme: light;
+  }
+
+  .dark {
+    color-scheme: dark;
+  }
+
+  body {
+    background-color: #f8fafc;
+    color: #090d1a;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    overflow-x: hidden;
+    transition: background-color 0.2s ease, color 0.2s ease;
+  }
+
+  .dark body {
+    background-color: #0b0f19;
+    color: #f8fafc;
+  }
+
+  /* Institutional scrollbar */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: #f1f5f9;
+  }
+
+  .dark ::-webkit-scrollbar-track {
+    background: #0b0f19;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 9999px;
+  }
+
+  .dark ::-webkit-scrollbar-thumb {
+    background: #1e293b;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+  }
+
+  .dark ::-webkit-scrollbar-thumb:hover {
+    background: #334155;
+  }
+}
+
+@layer utilities {
+  /* Subtle institutional micro dot grid for light and dark */
+  .bg-grid-institutional {
+    background-image: radial-gradient(rgba(15, 23, 42, 0.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  .dark .bg-grid-institutional {
+    background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+    background-size: 24px 24px;
+  }
+
+  /* Delicate lavender ambient gradient */
+  .bg-lavender-glow {
+    background: radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.06) 0%, rgba(248, 250, 252, 0) 70%);
+  }
+
+  .dark .bg-lavender-glow {
+    background: radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.12) 0%, rgba(11, 15, 25, 0) 70%);
+  }
+}
+
+/* Custom styles for Recharts Tooltips */
+.recharts-default-tooltip {
+  background-color: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 25px -4px rgba(15, 23, 42, 0.1) !important;
+  padding: 8px 12px !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 12px !important;
+  color: #090d1a !important;
+}
+
+.dark .recharts-default-tooltip {
+  background-color: #0f172a !important;
+  border: 1px solid #334155 !important;
+  box-shadow: 0 10px 25px -4px rgba(0, 0, 0, 0.5) !important;
+  color: #f8fafc !important;
+}
+
+.recharts-tooltip-item-list {
+  font-size: 11px !important;
+}
