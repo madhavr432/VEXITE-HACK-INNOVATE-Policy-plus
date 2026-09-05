@@ -1,15 +1,6 @@
 import axios from 'axios';
 
 /**
- * Resolved base URL prioritizing VITE_API_URL environment variable.
- * Fallbacks safely to VITE_API_BASE_URL or production Render URL when built for production.
- */
-const RAW_API_URL =
-  import.meta.env.VITE_API_URL ||
-  import.meta.env.VITE_API_BASE_URL ||
-  (import.meta.env.PROD ? 'https://vexite-hack-innovate-policy-plus-3.onrender.com' : 'http://localhost:8000');
-
-/**
  * URL normalization helper:
  * - Strips trailing slashes
  * - Prevents double `/api/api` if environment variable accidentally included `/api`
@@ -20,7 +11,39 @@ function normalizeBaseUrl(url) {
   return cleaned.endsWith('/api') ? cleaned.slice(0, -4) : cleaned;
 }
 
-export const API_URL = normalizeBaseUrl(RAW_API_URL);
+/**
+ * Resolve the API base URL:
+ * - In production (Vercel deployment) or when accessed from a remote domain:
+ *   If VITE_API_URL is unset or contains 'localhost', we use '' (relative URL).
+ *   This ensures requests like `/api/bus/simulate` go to same-origin and are seamlessly
+ *   reverse-proxied to the Render backend via Vercel rewrites (zero CORS, zero localhost issues).
+ * - If VITE_API_URL points to an explicit remote backend (e.g. Render), that can also be used.
+ * - In local development (`npm run dev`), defaults to '' which Vite's dev server proxies
+ *   to http://localhost:8000.
+ */
+function resolveBaseUrl() {
+  const envUrl = (import.meta.env.VITE_API_URL || import.meta.env.VITE_API_BASE_URL || '').trim();
+  const isBrowser = typeof window !== 'undefined';
+  const isRemoteHost = isBrowser && window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1';
+  const isProduction = import.meta.env.PROD || isRemoteHost;
+
+  if (isProduction) {
+    // If an environment variable is set to localhost, ignore it in production!
+    if (envUrl && !envUrl.includes('localhost') && !envUrl.includes('127.0.0.1')) {
+      return normalizeBaseUrl(envUrl);
+    }
+    // Default to same-origin relative proxy on Vercel deployment
+    return '';
+  }
+
+  // Local development: use envUrl if valid, otherwise empty string for Vite proxy
+  if (envUrl) {
+    return normalizeBaseUrl(envUrl);
+  }
+  return '';
+}
+
+export const API_URL = resolveBaseUrl();
 
 const api = axios.create({
   baseURL: API_URL,
