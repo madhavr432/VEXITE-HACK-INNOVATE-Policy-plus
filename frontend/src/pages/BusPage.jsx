@@ -24,9 +24,11 @@ import { PolicyInput } from '../components/bus/PolicyInput';
 import { PolicySlider } from '../components/bus/PolicySlider';
 import { ScenarioSelector } from '../components/bus/ScenarioSelector';
 import { BusMetricCard } from '../components/bus/BusMetricCard';
+import { ScenarioTable } from '../components/bus/ScenarioTable';
 import { ScenarioComparison } from '../components/bus/ScenarioComparison';
 import { PolicySensitivity } from '../components/bus/PolicySensitivity';
 import { TradeoffChart } from '../components/bus/TradeoffChart';
+import { SensitivitySummary } from '../components/bus/SensitivitySummary';
 import { SystemScale } from '../components/bus/SystemScale';
 import { ImpactSummary } from '../components/bus/ImpactSummary';
 import { StressTestPreview } from '../components/bus/StressTestPreview';
@@ -40,6 +42,7 @@ import {
 } from '../data/bus/demoScenarios';
 import {
   runBusSimulation,
+  getBusScenarios,
   formatInrLakhs,
   formatPaxK,
 } from '../services/busSimulation';
@@ -67,6 +70,7 @@ export function BusPage() {
   // Simulation loading state & results from FastAPI backend
   const [isSimulating, setIsSimulating] = useState(false);
   const [simulationResult, setSimulationResult] = useState(null);
+  const [scenariosResult, setScenariosResult] = useState(null);
   const [apiError, setApiError] = useState(null);
   const [isBackendLive, setIsBackendLive] = useState(true);
 
@@ -136,8 +140,12 @@ export function BusPage() {
     };
 
     try {
-      const response = await runBusSimulation(params);
-      setSimulationResult(response);
+      const [simResponse, scenResponse] = await Promise.all([
+        runBusSimulation(params),
+        getBusScenarios(params),
+      ]);
+      setSimulationResult(simResponse);
+      setScenariosResult(scenResponse);
       setIsBackendLive(true);
     } catch (err) {
       console.warn('Backend simulation unreachable, using fallback calculations:', err);
@@ -146,6 +154,25 @@ export function BusPage() {
     } finally {
       setIsSimulating(false);
     }
+  };
+
+  // Handle tier selection from Scenario Table or Charts
+  const handleSelectTier = (tierPercent) => {
+    const tierStr = String(tierPercent);
+    setFleetIncrease(tierStr);
+    if (selectedScenario !== 'proposed') setSelectedScenario('');
+
+    executeSimulation({
+      currentBuses,
+      fleetIncrease: tierStr,
+      dailyPassengers,
+      busCapacity,
+      ticketPrice,
+      costPerBus,
+      tripsPerBusPerDay,
+      currentWaitingTime,
+      demandElasticity,
+    });
   };
 
   // Run initial simulation on load with default proposed values
@@ -686,20 +713,48 @@ export function BusPage() {
             </div>
           )}
 
+          {/* SCENARIO COMPARISON MATRIX TABLE (COMMIT 4) */}
+          <ScenarioTable
+            scenarios={scenariosResult ? scenariosResult.scenarios : []}
+            activePercent={parseFloat(fleetIncrease) || 0}
+            onSelectTier={handleSelectTier}
+          />
+
           {/* CHARTS SECTION */}
           <div className="space-y-6">
             {/* Chart 1: Scenario Comparison Grouped Bar Chart */}
-            <ScenarioComparison data={dynamicComparisonData} />
+            <ScenarioComparison
+              scenarios={scenariosResult ? scenariosResult.scenarios : []}
+              activePercent={parseFloat(fleetIncrease) || 0}
+              onSelectTier={handleSelectTier}
+            />
 
             {/* Side-by-side Chart 2 & Chart 3 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Chart 2: Policy Sensitivity Line Chart */}
-              <PolicySensitivity data={dynamicSensitivityData} />
+              <PolicySensitivity
+                scenarios={scenariosResult ? scenariosResult.scenarios : []}
+                activePercent={parseFloat(fleetIncrease) || 0}
+                onSelectTier={handleSelectTier}
+              />
 
               {/* Chart 3: Cost vs Service Improvement */}
-              <TradeoffChart />
+              <TradeoffChart
+                scenarios={scenariosResult ? scenariosResult.scenarios : []}
+                activePercent={parseFloat(fleetIncrease) || 0}
+                onSelectTier={handleSelectTier}
+              />
             </div>
           </div>
+
+          {/* SENSITIVITY & ELASTICITY SYNTHESIS SUMMARY (COMMIT 4) */}
+          {scenariosResult && (
+            <SensitivitySummary
+              current={scenariosResult.current}
+              selectedScenario={scenariosResult.selected_scenario}
+              assumptions={scenariosResult.assumptions}
+            />
+          )}
 
           {/* SYSTEM SCALE PICTOGRAPH */}
           <SystemScale

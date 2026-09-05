@@ -54,6 +54,30 @@ export async function runBusSimulation(params) {
 }
 
 /**
+ * Fetch multi-scenario comparison matrix and sensitivity results across
+ * standard fleet expansion tiers (0%, 5%, 10%, 15%, 20%, 25%, 30%, 40%, 50%).
+ *
+ * @param {Object} params - Policy intervention parameters from form
+ * @returns {Promise<Object>} Backend scenarios response
+ */
+export async function getBusScenarios(params) {
+  const payload = {
+    current_fleet: parseInt(params.currentBuses, 10) || 100,
+    fleet_increase_percent: parseFloat(params.fleetIncrease) || 0,
+    daily_ridership: parseFloat(params.dailyPassengers) || 0,
+    capacity_per_bus: parseInt(params.busCapacity, 10) || 50,
+    average_ticket_price: parseFloat(params.ticketPrice) || 0,
+    operating_cost_per_bus: parseFloat(params.costPerBus) || 0,
+    trips_per_bus_per_day: parseFloat(params.tripsPerBusPerDay ?? 10.0),
+    current_waiting_time_minutes: parseFloat(params.currentWaitingTime ?? 14.0),
+    demand_elasticity: parseFloat(params.demandElasticity ?? 0.25),
+  };
+
+  const response = await api.post('/api/bus/scenarios', payload);
+  return response.data;
+}
+
+/**
  * Fetch available baseline scenario presets
  */
 export async function getBusPresets() {
@@ -62,7 +86,9 @@ export async function getBusPresets() {
 
 export default {
   runBusSimulation,
+  getBusScenarios,
   getBusPresets,
   formatInrLakhs,
   formatPaxK,
 };
+

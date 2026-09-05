@@ -1,4 +1,4 @@
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
 from pydantic import BaseModel, Field
 
 
@@ -116,10 +116,61 @@ class SimulationAssumptions(BaseModel):
 
 class BusSimulationResponse(BaseModel):
     """
-    Structured deterministic response for bus policy intervention simulation.
+    Structured deterministic response for single bus policy intervention simulation.
     """
     policy: PolicyOverview
     current: SimulationMetrics
     proposed: SimulationMetrics
     impact: SimulationImpact
+    assumptions: SimulationAssumptions
+
+
+class ScenarioItem(BaseModel):
+    """
+    Detailed metrics for a single scenario tier in multi-scenario analysis.
+    """
+    fleet_increase_percent: float
+    fleet: int
+    daily_ridership: float
+    daily_capacity: float
+    utilization_percent: float
+    waiting_time_minutes: float
+    operating_cost: float
+    revenue: float
+    operating_surplus: float
+    emissions_kg: float
+    waiting_time_delta_percent: float
+    ridership_delta_percent: float
+    operating_cost_delta_percent: float
+    surplus_delta_percent: float
+
+
+class SelectedScenario(BaseModel):
+    """
+    User's specifically selected intervention scenario.
+    """
+    fleet_increase_percent: float
+    fleet: int
+    daily_ridership: float
+    daily_capacity: float
+    utilization_percent: float
+    waiting_time_minutes: float
+    operating_cost: float
+    revenue: float
+    operating_surplus: float
+    emissions_kg: float
+    waiting_time_delta_percent: float
+    ridership_delta_percent: float
+    operating_cost_delta_percent: float
+    surplus_delta_percent: float
+
+
+class BusScenariosResponse(BaseModel):
+    """
+    Multi-scenario policy comparison and sensitivity response.
+    """
+    base_fleet: int
+    current: SimulationMetrics
+    selected_scenario: SelectedScenario
+    scenarios: List[ScenarioItem]
     assumptions: SimulationAssumptions

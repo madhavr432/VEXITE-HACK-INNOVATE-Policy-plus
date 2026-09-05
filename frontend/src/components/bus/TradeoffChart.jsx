@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -12,6 +12,7 @@ import {
 } from 'recharts';
 import { Card, CardHeader, CardContent } from '../Card';
 import { COST_VS_SERVICE_DATA } from '../../data/bus/demoScenarios';
+import { formatInrLakhs } from '../../services/busSimulation';
 import { cn } from '../../utils/cn';
 
 function TradeoffTooltip({ active, payload, label }) {
@@ -19,7 +20,7 @@ function TradeoffTooltip({ active, payload, label }) {
     return (
       <div className="rounded-xl border border-slate-200 dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm p-3 shadow-soft-lg text-xs font-mono">
         <div className="font-bold text-slate-900 dark:text-white mb-2 pb-1 border-b border-slate-100 dark:border-slate-800">
-          Intervention: {label}
+          Expansion Tier: {label}
         </div>
         {payload.map((entry, idx) => (
           <div key={idx} className="flex items-center justify-between gap-4 py-0.5">
@@ -40,31 +41,87 @@ function TradeoffTooltip({ active, payload, label }) {
 
 /**
  * TradeoffChart Component
- * Demonstrates policy trade-offs by contrasting Operating Cost against Service Improvement and Waiting Time reductions.
+ * Contrasts incremental operating expenditure against service gains across scenario tiers.
  */
-export function TradeoffChart({ className = '' }) {
+export function TradeoffChart({
+  scenarios = [],
+  activePercent = 20,
+  onSelectTier,
+  className = '',
+}) {
+  const [metricMode, setMetricMode] = useState('wait'); // 'wait' | 'ridership'
+
+  const chartData = useMemo(() => {
+    if (scenarios && scenarios.length > 0) {
+      return scenarios.map((sc) => ({
+        stage: sc.fleet_increase_percent === 0 ? '0% (Base)' : `+${sc.fleet_increase_percent}%`,
+        tierPercent: sc.fleet_increase_percent,
+        cost: Number((sc.operating_cost / 100000).toFixed(1)),
+        waitReduction: Math.abs(sc.waiting_time_delta_percent),
+        ridershipGain: sc.ridership_delta_percent,
+        surplus: Number((sc.operating_surplus / 100000).toFixed(1)),
+      }));
+    }
+    return COST_VS_SERVICE_DATA;
+  }, [scenarios]);
+
   return (
     <Card className={cn('overflow-hidden', className)}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-            Cost vs Service Improvement
-          </h3>
-          <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
-            Trade-off Dynamics
-          </span>
+      <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
+              Cost vs Service Trade-off
+            </h3>
+            <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+              Marginal Gain
+            </span>
+          </div>
+          <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
+            Marginal public benefit against incremental operating expenditure
+          </p>
         </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Evaluating marginal service gain against incremental operating expenditure
-        </p>
+
+        {/* Toggle Button */}
+        <div className="inline-flex items-center p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700/80 text-xs font-medium">
+          <button
+            type="button"
+            onClick={() => setMetricMode('wait')}
+            className={cn(
+              'px-2.5 py-1 rounded-lg transition-all duration-150',
+              metricMode === 'wait'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold shadow-soft-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            )}
+          >
+            Wait Reduction %
+          </button>
+          <button
+            type="button"
+            onClick={() => setMetricMode('ridership')}
+            className={cn(
+              'px-2.5 py-1 rounded-lg transition-all duration-150',
+              metricMode === 'ridership'
+                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white font-bold shadow-soft-xs'
+                : 'text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white'
+            )}
+          >
+            Ridership Gain %
+          </button>
+        </div>
       </CardHeader>
 
       <CardContent className="pt-2">
         <div className="h-56 sm:h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
-              data={COST_VS_SERVICE_DATA}
+              data={chartData}
               margin={{ top: 12, right: 12, left: -20, bottom: 0 }}
+              onClick={(e) => {
+                if (e && e.activePayload && e.activePayload[0] && onSelectTier) {
+                  onSelectTier(e.activePayload[0].payload.tierPercent);
+                }
+              }}
             >
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94a3b8" strokeOpacity={0.2} />
               <XAxis
@@ -76,18 +133,17 @@ export function TradeoffChart({ className = '' }) {
               {/* Left Y Axis for Cost */}
               <YAxis
                 yAxisId="left"
-                domain={[7, 12]}
                 tick={{ fontSize: 10, fill: '#f59e0b' }}
                 axisLine={false}
                 tickLine={false}
                 unit="₹L"
               />
-              {/* Right Y Axis for Service / Wait Reduction % */}
+              {/* Right Y Axis for Percentage Gain */}
               <YAxis
                 yAxisId="right"
                 orientation="right"
-                domain={[0, 35]}
-                tick={{ fontSize: 10, fill: '#4f46e5' }}
+                domain={[0, 40]}
+                tick={{ fontSize: 10, fill: '#10b981' }}
                 axisLine={false}
                 tickLine={false}
                 unit="%"
@@ -104,28 +160,33 @@ export function TradeoffChart({ className = '' }) {
                 fill="#f59e0b"
                 radius={[4, 4, 0, 0]}
                 unit="₹L"
-                barSize={20}
+                barSize={18}
               />
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="waitReduction"
-                name="Wait Reduction (%)"
-                stroke="#10b981"
-                strokeWidth={2.5}
-                dot={{ r: 3.5, fill: '#10b981' }}
-                unit="%"
-              />
-              <Line
-                yAxisId="right"
-                type="monotone"
-                dataKey="serviceGain"
-                name="Service Improvement Index (%)"
-                stroke="#4f46e5"
-                strokeWidth={2.5}
-                dot={{ r: 3.5, fill: '#4f46e5' }}
-                unit="%"
-              />
+              {metricMode === 'wait' ? (
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="waitReduction"
+                  name="Wait Time Reduction (%)"
+                  stroke="#10b981"
+                  strokeWidth={2.5}
+                  dot={{ r: 3.5, fill: '#10b981' }}
+                  activeDot={{ r: 6, fill: '#059669' }}
+                  unit="%"
+                />
+              ) : (
+                <Line
+                  yAxisId="right"
+                  type="monotone"
+                  dataKey="ridershipGain"
+                  name="Ridership Growth (%)"
+                  stroke="#4f46e5"
+                  strokeWidth={2.5}
+                  dot={{ r: 3.5, fill: '#4f46e5' }}
+                  activeDot={{ r: 6, fill: '#4338ca' }}
+                  unit="%"
+                />
+              )}
             </ComposedChart>
           </ResponsiveContainer>
         </div>
