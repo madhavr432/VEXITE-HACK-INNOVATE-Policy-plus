@@ -62,8 +62,13 @@ export function RiskBreakdown({ components }) {
               Risk Component Breakdown & Weights
             </div>
           </div>
-          <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
-            Σ Weights = 100%
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
+              Calculated by Policy+
+            </span>
+            <div className="text-xs text-slate-500 dark:text-slate-400 font-mono">
+              Σ Weights = 100%
+            </div>
           </div>
         </div>
       </CardHeader>

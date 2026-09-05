@@ -1,127 +1,205 @@
 import React from 'react';
-import { Settings, Info, Gauge, Zap, Fuel, Activity } from 'lucide-react';
+import {
+  Settings,
+  Info,
+  Gauge,
+  Zap,
+  Fuel,
+  Activity,
+  Bus,
+  Users,
+  Coins,
+  Clock,
+  Leaf,
+} from 'lucide-react';
 import { Card, CardHeader, CardContent } from '../Card';
 import { cn } from '../../utils/cn';
 
 /**
  * ModelAssumptions Component
+ *
  * Displays the transparent audit trail of empirical parameters and assumptions
  * utilized by the deterministic simulation engine.
+ *
+ * Requirement 6:
+ * Clearly visible "Simulation Assumptions" section showing all 11 relevant parameters:
+ * - current fleet
+ * - fleet increase
+ * - daily ridership
+ * - bus capacity
+ * - trips/day
+ * - ticket price
+ * - operating cost
+ * - waiting time
+ * - demand elasticity
+ * - emission factor
+ * - fuel usage
+ * And mandatory note: "Illustrative assumptions — not official forecasts."
  */
 export function ModelAssumptions({
-  assumptions = {
-    trips_per_bus_per_day: 10,
-    demand_elasticity: 0.25,
-    waiting_time_alpha: 0.5,
-    daily_fuel_use_per_bus: 120,
-    emission_factor_kg_per_liter: 2.31,
-  },
+  currentFleet = 100,
+  fleetIncrease = 20,
+  dailyRidership = 42000,
+  busCapacity = 50,
+  tripsPerBusPerDay = 10,
+  ticketPrice = 25,
+  costPerBus = 8200,
+  currentWaitingTime = 14,
+  demandElasticity = 0.25,
+  emissionFactor = 2.31,
+  dailyFuelUse = 120,
+  assumptions = {},
   className = '',
 }) {
+  const trips = assumptions?.trips_per_bus_per_day ?? tripsPerBusPerDay;
+  const elasticity = assumptions?.demand_elasticity ?? demandElasticity;
+  const fuel = assumptions?.daily_fuel_use_per_bus ?? dailyFuelUse;
+  const emissions = assumptions?.emission_factor_kg_per_liter ?? emissionFactor;
+
+  const items = [
+    {
+      label: 'Current Fleet',
+      value: `${Number(currentFleet).toLocaleString()} buses`,
+      sub: 'Base fleet size',
+      icon: Bus,
+    },
+    {
+      label: 'Fleet Increase',
+      value: `+${fleetIncrease}%`,
+      sub: 'Target intervention',
+      icon: TrendingUpIcon,
+    },
+    {
+      label: 'Daily Ridership',
+      value: `${Number(dailyRidership).toLocaleString()} pax/day`,
+      sub: 'Baseline route demand',
+      icon: Users,
+    },
+    {
+      label: 'Bus Capacity',
+      value: `${busCapacity} passengers`,
+      sub: 'Seated & standing limit',
+      icon: Bus,
+    },
+    {
+      label: 'Trips / Bus / Day',
+      value: `${trips} circuits`,
+      sub: 'Daily vehicle turnaround',
+      icon: Activity,
+    },
+    {
+      label: 'Ticket Price',
+      value: `₹${ticketPrice}`,
+      sub: 'Average tariff/trip',
+      icon: Coins,
+    },
+    {
+      label: 'Operating Cost',
+      value: `₹${Number(costPerBus).toLocaleString()}/day`,
+      sub: 'Cost per vehicle/day',
+      icon: Coins,
+    },
+    {
+      label: 'Waiting Time',
+      value: `${currentWaitingTime} min`,
+      sub: 'Base headway delay',
+      icon: Clock,
+    },
+    {
+      label: 'Demand Elasticity',
+      value: `${elasticity}`,
+      sub: 'Service frequency response',
+      icon: Gauge,
+    },
+    {
+      label: 'Emission Factor',
+      value: `${emissions} kg/L`,
+      sub: 'CO₂ per liter diesel',
+      icon: Leaf,
+    },
+    {
+      label: 'Fuel Usage',
+      value: `${fuel} L/bus/day`,
+      sub: 'Average depot burn rate',
+      icon: Fuel,
+    },
+  ];
+
   return (
-    <Card className={cn('overflow-hidden', className)}>
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
+    <Card className={cn('overflow-hidden border border-slate-200/90 dark:border-slate-800 shadow-soft-xs', className)}>
+      <CardHeader className="pb-3 border-b border-slate-100 dark:border-slate-800/80">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Settings className="w-4 h-4 text-policy-600 dark:text-policy-400" />
             <h3 className="text-base font-bold text-slate-900 dark:text-white tracking-tight">
-              Model Assumptions & Parameters
+              Simulation Assumptions
             </h3>
           </div>
-          <span className="text-[10px] font-mono text-slate-400 dark:text-slate-500 bg-slate-100 dark:bg-slate-800 px-2 py-0.5 rounded">
-            Auditable Engine
+          <span className="text-[11px] font-mono text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-md border border-slate-200 dark:border-slate-700">
+            Calculated by Policy+ Engine
           </span>
         </div>
-        <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5">
-          Explicit calibration assumptions powering the deterministic simulation calculations
+        <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
+          Full calibration parameters transmitted to the deterministic simulation engine.
         </p>
       </CardHeader>
 
-      <CardContent className="space-y-4 pt-1">
-        {/* Assumption Cards Grid */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-          {/* Assumption 1: Trips / day */}
-          <div className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs mb-1">
-              <Activity className="w-3.5 h-3.5 text-policy-500" />
-              <span>Trips / Bus / Day</span>
-            </div>
-            <div className="text-sm font-extrabold font-mono text-slate-900 dark:text-white">
-              {assumptions.trips_per_bus_per_day} <span className="text-[10px] font-normal text-slate-400">trips</span>
-            </div>
-            <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-              Circuit frequency
-            </div>
-          </div>
-
-          {/* Assumption 2: Demand Elasticity */}
-          <div className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs mb-1">
-              <Gauge className="w-3.5 h-3.5 text-ai-500" />
-              <span>Demand Elasticity</span>
-            </div>
-            <div className="text-sm font-extrabold font-mono text-slate-900 dark:text-white">
-              {assumptions.demand_elasticity} <span className="text-[10px] font-normal text-slate-400">ratio</span>
-            </div>
-            <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-              Service sensitivity
-            </div>
-          </div>
-
-          {/* Assumption 3: Waiting Time Alpha */}
-          <div className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs mb-1">
-              <Zap className="w-3.5 h-3.5 text-amber-500" />
-              <span>Wait-Time Alpha (α)</span>
-            </div>
-            <div className="text-sm font-extrabold font-mono text-slate-900 dark:text-white">
-              {assumptions.waiting_time_alpha} <span className="text-[10px] font-normal text-slate-400">power</span>
-            </div>
-            <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-              Queue pressure factor
-            </div>
-          </div>
-
-          {/* Assumption 4: Fuel Consumption */}
-          <div className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs mb-1">
-              <Fuel className="w-3.5 h-3.5 text-rose-500" />
-              <span>Fuel Use / Bus</span>
-            </div>
-            <div className="text-sm font-extrabold font-mono text-slate-900 dark:text-white">
-              {assumptions.daily_fuel_use_per_bus} <span className="text-[10px] font-normal text-slate-400">L/day</span>
-            </div>
-            <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-              Depot consumption
-            </div>
-          </div>
-
-          {/* Assumption 5: CO2 Factor */}
-          <div className="p-3 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/40">
-            <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400 text-xs mb-1">
-              <Info className="w-3.5 h-3.5 text-emerald-500" />
-              <span>CO₂ Factor</span>
-            </div>
-            <div className="text-sm font-extrabold font-mono text-slate-900 dark:text-white">
-              {assumptions.emission_factor_kg_per_liter} <span className="text-[10px] font-normal text-slate-400">kg/L</span>
-            </div>
-            <div className="text-[10px] text-slate-400 dark:text-slate-500 mt-0.5">
-              Fuel carbon intensity
-            </div>
-          </div>
+      <CardContent className="space-y-4 pt-4">
+        {/* 11 Parameters Grid */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 gap-2.5">
+          {items.map((item, idx) => {
+            const Icon = item.icon;
+            return (
+              <div
+                key={idx}
+                className="p-2.5 rounded-xl border border-slate-200/80 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/40 space-y-1"
+              >
+                <div className="flex items-center gap-1.5 text-slate-400 text-[11px] font-mono">
+                  <Icon className="w-3 h-3 text-policy-500 shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </div>
+                <div className="text-xs font-bold font-mono text-slate-900 dark:text-white truncate">
+                  {item.value}
+                </div>
+                <div className="text-[10px] text-slate-400 dark:text-slate-500 truncate">
+                  {item.sub}
+                </div>
+              </div>
+            );
+          })}
         </div>
 
-        {/* Responsible AI / Explanatory Transparency Note */}
-        <div className="rounded-xl bg-slate-100/80 dark:bg-slate-800/60 p-3 flex items-start gap-2.5 text-xs text-slate-600 dark:text-slate-400 border border-slate-200/60 dark:border-slate-700/60">
-          <Info className="w-4 h-4 text-policy-600 dark:text-policy-400 shrink-0 mt-0.5" />
-          <p className="leading-relaxed">
-            <span className="font-semibold text-slate-800 dark:text-slate-200">Notice on Simulation Modeling: </span>
-            Simulation outputs are scenario estimates based on configurable assumptions, not guaranteed real-world forecasts. 
-            Empirical demand response and queue compression use mathematical sensitivity approximations for policy decision support.
-          </p>
+        {/* Mandatory Responsible Simulation Disclaimer */}
+        <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-xs text-amber-900 dark:text-amber-200 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Info className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span className="font-medium font-sans">
+              <strong>Illustrative assumptions — not official forecasts.</strong> Results model sensitivity under tested conditions and require validated local telemetry prior to real-world infrastructure deployment.
+            </span>
+          </div>
         </div>
       </CardContent>
     </Card>
+  );
+}
+
+function TrendingUpIcon(props) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17" />
+      <polyline points="16 7 22 7 22 13" />
+    </svg>
   );
 }
 
