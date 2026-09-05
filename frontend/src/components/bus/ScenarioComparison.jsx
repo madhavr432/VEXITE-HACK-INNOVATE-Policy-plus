@@ -44,8 +44,9 @@ function CustomBarTooltip({ active, payload, label }) {
  * ScenarioComparison Component
  * Grouped bar chart visualizing Ridership & Operating Cost with a toggle for Waiting Time
  */
-export function ScenarioComparison({ className = '' }) {
+export function ScenarioComparison({ data, className = '' }) {
   const [viewMetric, setViewMetric] = useState('ridership_cost'); // 'ridership_cost' | 'wait_time'
+  const chartData = data && data.length > 0 ? data : SCENARIO_COMPARISON_DATA;
 
   return (
     <Card className={cn('overflow-hidden', className)}>
@@ -93,7 +94,7 @@ export function ScenarioComparison({ className = '' }) {
           <ResponsiveContainer width="100%" height="100%">
             {viewMetric === 'ridership_cost' ? (
               <BarChart
-                data={SCENARIO_COMPARISON_DATA}
+                data={chartData}
                 margin={{ top: 12, right: 12, left: -16, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94a3b8" strokeOpacity={0.2} />
@@ -130,7 +131,7 @@ export function ScenarioComparison({ className = '' }) {
               </BarChart>
             ) : (
               <BarChart
-                data={SCENARIO_COMPARISON_DATA}
+                data={chartData}
                 margin={{ top: 12, right: 12, left: -16, bottom: 0 }}
               >
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94a3b8" strokeOpacity={0.2} />

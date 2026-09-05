@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Bus,
   RotateCcw,
@@ -8,6 +8,10 @@ import {
   ChevronUp,
   Loader2,
   Info,
+  AlertCircle,
+  TrendingUp,
+  Coins,
+  Leaf,
 } from 'lucide-react';
 
 import { PageHeader } from '../components/PageHeader';
@@ -26,14 +30,19 @@ import { TradeoffChart } from '../components/bus/TradeoffChart';
 import { SystemScale } from '../components/bus/SystemScale';
 import { ImpactSummary } from '../components/bus/ImpactSummary';
 import { StressTestPreview } from '../components/bus/StressTestPreview';
+import { ModelAssumptions } from '../components/bus/ModelAssumptions';
 
-// Demo data & simulation service
+// Demo data & backend simulation service
 import {
   DEMO_SCENARIO_PRESETS,
   DEFAULT_ADVANCED_ASSUMPTIONS,
   calculateDemoPreview,
 } from '../data/bus/demoScenarios';
-import { runBusSimulation } from '../services/busSimulation';
+import {
+  runBusSimulation,
+  formatInrLakhs,
+  formatPaxK,
+} from '../services/busSimulation';
 
 export function BusPage() {
   // 1. Primary Policy Configuration State
@@ -47,20 +56,26 @@ export function BusPage() {
   // Scenario selection preset ('baseline' | 'proposed' | 'stress')
   const [selectedScenario, setSelectedScenario] = useState('proposed');
 
-  // Collapsible Advanced Assumptions state (initially collapsed)
+  // Advanced Assumptions State
   const [showAdvanced, setShowAdvanced] = useState(false);
-  const [advancedAssumptions, setAdvancedAssumptions] = useState(DEFAULT_ADVANCED_ASSUMPTIONS);
+  const [tripsPerBusPerDay, setTripsPerBusPerDay] = useState(10);
+  const [currentWaitingTime, setCurrentWaitingTime] = useState(14);
+  const [demandElasticity, setDemandElasticity] = useState(0.25);
+  const [dailyFuelUse, setDailyFuelUse] = useState(120);
+  const [emissionFactor, setEmissionFactor] = useState(2.31);
 
-  // Simulation loading state
+  // Simulation loading state & results from FastAPI backend
   const [isSimulating, setIsSimulating] = useState(false);
-  const [hasRunSimulation, setHasRunSimulation] = useState(false);
+  const [simulationResult, setSimulationResult] = useState(null);
+  const [apiError, setApiError] = useState(null);
+  const [isBackendLive, setIsBackendLive] = useState(true);
 
   // Inline Validation States
   const validationErrors = useMemo(() => {
     const errors = {};
     const buses = parseInt(currentBuses, 10);
-    const increase = parseInt(fleetIncrease, 10);
-    const pax = parseInt(dailyPassengers, 10);
+    const increase = parseFloat(fleetIncrease);
+    const pax = parseFloat(dailyPassengers);
     const cap = parseInt(busCapacity, 10);
     const price = parseFloat(ticketPrice);
     const cost = parseFloat(costPerBus);
@@ -68,8 +83,8 @@ export function BusPage() {
     if (isNaN(buses) || buses < 1 || buses > 10000) {
       errors.currentBuses = 'Fleet must be between 1 and 10,000 buses';
     }
-    if (isNaN(increase) || increase < 0 || increase > 100) {
-      errors.fleetIncrease = 'Increase must be between 0% and 100%';
+    if (isNaN(increase) || increase < 0 || increase > 50) {
+      errors.fleetIncrease = 'Increase must be between 0% and 50%';
     }
     if (isNaN(pax) || pax < 0) {
       errors.dailyPassengers = 'Ridership cannot be negative';
@@ -89,8 +104,8 @@ export function BusPage() {
 
   const isValid = Object.keys(validationErrors).length === 0;
 
-  // Active Calculated Preview Metrics (Dynamic demo calculation)
-  const activeMetrics = useMemo(() => {
+  // Local fallback demo preview (for instantaneous slider feedback)
+  const localPreview = useMemo(() => {
     return calculateDemoPreview({
       currentBuses,
       fleetIncrease,
@@ -101,39 +116,73 @@ export function BusPage() {
     });
   }, [currentBuses, fleetIncrease, dailyPassengers, busCapacity, ticketPrice, costPerBus]);
 
+  // Execute simulation against FastAPI backend
+  const executeSimulation = async (overrideParams = null) => {
+    if (!isValid && !overrideParams) return;
+
+    setIsSimulating(true);
+    setApiError(null);
+
+    const params = overrideParams || {
+      currentBuses,
+      fleetIncrease,
+      dailyPassengers,
+      busCapacity,
+      ticketPrice,
+      costPerBus,
+      tripsPerBusPerDay,
+      currentWaitingTime,
+      demandElasticity,
+    };
+
+    try {
+      const response = await runBusSimulation(params);
+      setSimulationResult(response);
+      setIsBackendLive(true);
+    } catch (err) {
+      console.warn('Backend simulation unreachable, using fallback calculations:', err);
+      setApiError('Simulation service unavailable. Please make sure the Policy+ API is running.');
+      setIsBackendLive(false);
+    } finally {
+      setIsSimulating(false);
+    }
+  };
+
+  // Run initial simulation on load with default proposed values
+  useEffect(() => {
+    executeSimulation();
+  }, []);
+
   // Handle Scenario Presets Selection
   const handleSelectScenario = (scenarioId) => {
     setSelectedScenario(scenarioId);
     const preset = DEMO_SCENARIO_PRESETS[scenarioId];
     if (preset) {
-      setCurrentBuses(String(preset.inputs.currentBuses));
-      setFleetIncrease(String(preset.inputs.fleetIncrease));
-      setDailyPassengers(String(preset.inputs.dailyPassengers));
-      setBusCapacity(String(preset.inputs.busCapacity));
-      setTicketPrice(String(preset.inputs.ticketPrice));
-      setCostPerBus(String(preset.inputs.costPerBus));
-    }
-  };
+      const newFleet = String(preset.inputs.currentBuses);
+      const newInc = String(preset.inputs.fleetIncrease);
+      const newPax = String(preset.inputs.dailyPassengers);
+      const newCap = String(preset.inputs.busCapacity);
+      const newPrice = String(preset.inputs.ticketPrice);
+      const newCost = String(preset.inputs.costPerBus);
 
-  // Run Simulation Handler with 1s visual feedback
-  const handleRunSimulation = async () => {
-    if (!isValid) return;
+      setCurrentBuses(newFleet);
+      setFleetIncrease(newInc);
+      setDailyPassengers(newPax);
+      setBusCapacity(newCap);
+      setTicketPrice(newPrice);
+      setCostPerBus(newCost);
 
-    setIsSimulating(true);
-    try {
-      await runBusSimulation({
-        currentBuses,
-        fleetIncrease,
-        dailyPassengers,
-        busCapacity,
-        ticketPrice,
-        costPerBus,
+      executeSimulation({
+        currentBuses: newFleet,
+        fleetIncrease: newInc,
+        dailyPassengers: newPax,
+        busCapacity: newCap,
+        ticketPrice: newPrice,
+        costPerBus: newCost,
+        tripsPerBusPerDay,
+        currentWaitingTime,
+        demandElasticity,
       });
-      setHasRunSimulation(true);
-    } catch (err) {
-      console.error('Simulation error:', err);
-    } finally {
-      setIsSimulating(false);
     }
   };
 
@@ -147,9 +196,90 @@ export function BusPage() {
     setTicketPrice(String(defaultPreset.inputs.ticketPrice));
     setCostPerBus(String(defaultPreset.inputs.costPerBus));
     setSelectedScenario('proposed');
-    setAdvancedAssumptions(DEFAULT_ADVANCED_ASSUMPTIONS);
-    setHasRunSimulation(false);
+    setTripsPerBusPerDay(10);
+    setCurrentWaitingTime(14);
+    setDemandElasticity(0.25);
+    setDailyFuelUse(120);
+    setEmissionFactor(2.31);
+    setApiError(null);
+
+    executeSimulation({
+      currentBuses: String(defaultPreset.inputs.currentBuses),
+      fleetIncrease: String(defaultPreset.inputs.fleetIncrease),
+      dailyPassengers: String(defaultPreset.inputs.dailyPassengers),
+      busCapacity: String(defaultPreset.inputs.busCapacity),
+      ticketPrice: String(defaultPreset.inputs.ticketPrice),
+      costPerBus: String(defaultPreset.inputs.costPerBus),
+      tripsPerBusPerDay: 10,
+      currentWaitingTime: 14,
+      demandElasticity: 0.25,
+    });
   };
+
+  // Generate dynamic chart data based on deterministic equations
+  const dynamicComparisonData = useMemo(() => {
+    const baseFleet = parseInt(currentBuses, 10) || 100;
+    const basePax = parseFloat(dailyPassengers) || 42000;
+    const cap = parseInt(busCapacity, 10) || 50;
+    const cost = parseFloat(costPerBus) || 8200;
+    const trips = tripsPerBusPerDay || 10;
+    const elasticity = demandElasticity || 0.25;
+
+    const baseCap = baseFleet * cap * trips;
+    const curPressure = baseCap > 0 ? basePax / baseCap : 0;
+
+    const tiers = [0, 10, 15, 20, 25, 30];
+    return tiers.map((inc) => {
+      const fleet = Math.max(1, Math.round(baseFleet * (1 + inc / 100)));
+      const dailyCap = fleet * cap * trips;
+      const sDelta = ((fleet - baseFleet) / baseFleet) * 100;
+      const rDelta = elasticity * sDelta;
+      const pax = Math.round(basePax * (1 + rDelta / 100));
+      const opexLakhs = (fleet * cost) / 100000;
+      const propPressure = dailyCap > 0 ? pax / dailyCap : 0;
+      const wait = curPressure > 0 && propPressure > 0
+        ? Number((currentWaitingTime * ((propPressure / curPressure) ** 0.5)).toFixed(1))
+        : currentWaitingTime;
+
+      return {
+        scenario: inc === 0 ? 'Current' : `+${inc}%`,
+        fleet,
+        ridership: Number((pax / 1000).toFixed(1)),
+        cost: Number(opexLakhs.toFixed(1)),
+        waitTime: wait,
+      };
+    });
+  }, [currentBuses, dailyPassengers, busCapacity, costPerBus, tripsPerBusPerDay, demandElasticity, currentWaitingTime]);
+
+  const dynamicSensitivityData = useMemo(() => {
+    const baseFleet = parseInt(currentBuses, 10) || 100;
+    const basePax = parseFloat(dailyPassengers) || 42000;
+    const cap = parseInt(busCapacity, 10) || 50;
+    const trips = tripsPerBusPerDay || 10;
+    const elasticity = demandElasticity || 0.25;
+
+    const baseCap = baseFleet * cap * trips;
+    const curPressure = baseCap > 0 ? basePax / baseCap : 0;
+
+    const tiers = [0, 10, 20, 30, 40];
+    return tiers.map((inc) => {
+      const fleet = Math.max(1, Math.round(baseFleet * (1 + inc / 100)));
+      const dailyCap = fleet * cap * trips;
+      const sDelta = ((fleet - baseFleet) / baseFleet) * 100;
+      const rDelta = elasticity * sDelta;
+      const pax = Math.round(basePax * (1 + rDelta / 100));
+      const propPressure = dailyCap > 0 ? pax / dailyCap : 0;
+      const wait = curPressure > 0 && propPressure > 0
+        ? Number((currentWaitingTime * ((propPressure / curPressure) ** 0.5)).toFixed(1))
+        : currentWaitingTime;
+
+      return {
+        fleetDelta: `${inc}%`,
+        fleetNum: fleet,
+        waitTime: wait,
+      };
+    });
+  }, [currentBuses, dailyPassengers, busCapacity, tripsPerBusPerDay, demandElasticity, currentWaitingTime]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 space-y-8">
@@ -163,11 +293,29 @@ export function BusPage() {
         actions={
           <div className="flex items-center gap-2">
             <span className="text-xs font-mono text-slate-600 dark:text-slate-300 bg-white dark:bg-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-soft-xs">
-              Commit 2 Interface
+              Deterministic Engine v0.3.0
             </span>
           </div>
         }
       />
+
+      {/* BACKEND API ERROR NOTICE (IF OFFLINE) */}
+      {apiError && (
+        <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-300 dark:border-amber-800 p-4 shadow-soft-xs flex items-center justify-between gap-4 animate-in fade-in duration-150">
+          <div className="flex items-center gap-2.5 text-xs text-amber-900 dark:text-amber-200 font-medium">
+            <AlertCircle className="w-4 h-4 text-amber-600 dark:text-amber-400 shrink-0" />
+            <span>{apiError}</span>
+          </div>
+          <Button
+            onClick={() => executeSimulation()}
+            size="sm"
+            variant="secondary"
+            className="text-xs shrink-0"
+          >
+            Retry Connection
+          </Button>
+        </div>
+      )}
 
       {/* 2. MAIN WORKSPACE GRID: CONFIGURATION (LEFT) & SIMULATION PREVIEW (RIGHT) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
@@ -283,8 +431,8 @@ export function BusPage() {
                 >
                   <span className="flex items-center gap-1.5 font-mono">
                     <span>Advanced Assumptions</span>
-                    <span className="text-[10px] text-slate-400 font-normal">
-                      (UI Only)
+                    <span className="text-[10px] text-policy-600 dark:text-policy-400 font-semibold">
+                      (Configurable)
                     </span>
                   </span>
                   {showAdvanced ? (
@@ -298,58 +446,55 @@ export function BusPage() {
                   <div className="p-3.5 space-y-3 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 text-xs animate-in fade-in duration-150">
                     <div className="grid grid-cols-2 gap-2.5">
                       <div>
-                        <label className="text-[11px] text-slate-600 dark:text-slate-400">Route Dist</label>
+                        <label className="text-[11px] text-slate-600 dark:text-slate-400 font-semibold">Trips/Bus/Day</label>
                         <input
-                          type="text"
-                          value={`${advancedAssumptions.routeDistance} km`}
-                          disabled
-                          className="w-full mt-1 p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 font-mono text-xs"
+                          type="number"
+                          value={tripsPerBusPerDay}
+                          onChange={(e) => setTripsPerBusPerDay(parseFloat(e.target.value) || 1)}
+                          min={1}
+                          max={30}
+                          className="w-full mt-1 p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono text-xs"
                         />
                       </div>
                       <div>
-                        <label className="text-[11px] text-slate-600 dark:text-slate-400">Fuel Cost</label>
+                        <label className="text-[11px] text-slate-600 dark:text-slate-400 font-semibold">Base Wait Time</label>
                         <input
-                          type="text"
-                          value={`₹${advancedAssumptions.fuelCost}/L`}
-                          disabled
-                          className="w-full mt-1 p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 font-mono text-xs"
+                          type="number"
+                          value={currentWaitingTime}
+                          onChange={(e) => setCurrentWaitingTime(parseFloat(e.target.value) || 0)}
+                          min={0}
+                          className="w-full mt-1 p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono text-xs"
                         />
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-2.5">
                       <div>
-                        <label className="text-[11px] text-slate-600 dark:text-slate-400">Trip Duration</label>
+                        <label className="text-[11px] text-slate-600 dark:text-slate-400 font-semibold">Demand Elasticity</label>
                         <input
-                          type="text"
-                          value={`${advancedAssumptions.tripDuration} min`}
-                          disabled
-                          className="w-full mt-1 p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 font-mono text-xs"
+                          type="number"
+                          step="0.05"
+                          value={demandElasticity}
+                          onChange={(e) => setDemandElasticity(parseFloat(e.target.value) || 0)}
+                          min={0}
+                          max={1}
+                          className="w-full mt-1 p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono text-xs"
                         />
                       </div>
                       <div>
-                        <label className="text-[11px] text-slate-600 dark:text-slate-400">Peak Demand</label>
+                        <label className="text-[11px] text-slate-600 dark:text-slate-400 font-semibold">Fuel (L/Bus/Day)</label>
                         <input
-                          type="text"
-                          value={`${advancedAssumptions.peakDemandFactor}x`}
-                          disabled
-                          className="w-full mt-1 p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 font-mono text-xs"
+                          type="number"
+                          value={dailyFuelUse}
+                          onChange={(e) => setDailyFuelUse(parseFloat(e.target.value) || 0)}
+                          min={0}
+                          className="w-full mt-1 p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-900 dark:text-white font-mono text-xs"
                         />
                       </div>
                     </div>
 
-                    <div>
-                      <label className="text-[11px] text-slate-600 dark:text-slate-400">Off-Peak Demand</label>
-                      <input
-                        type="text"
-                        value={`${advancedAssumptions.offPeakDemandFactor}x`}
-                        disabled
-                        className="w-full mt-1 p-2 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-500 font-mono text-xs"
-                      />
-                    </div>
-
                     <p className="text-[11px] text-slate-400 dark:text-slate-500 leading-tight italic pt-1">
-                      Advanced assumptions will be used by the simulation engine in the next stage.
+                      Advanced assumptions are transmitted directly to the deterministic simulation engine.
                     </p>
                   </div>
                 )}
@@ -358,7 +503,7 @@ export function BusPage() {
               {/* ACTION BUTTONS */}
               <div className="pt-2 space-y-2">
                 <Button
-                  onClick={handleRunSimulation}
+                  onClick={() => executeSimulation()}
                   disabled={!isValid || isSimulating}
                   size="md"
                   variant="primary"
@@ -368,17 +513,16 @@ export function BusPage() {
                   {isSimulating ? (
                     <span className="flex items-center gap-2">
                       <Loader2 className="w-4 h-4 animate-spin" />
-                      Analyzing policy scenario...
+                      Executing simulation engine...
                     </span>
                   ) : (
                     'Run Simulation →'
                   )}
                 </Button>
 
-                {/* Subtitle disclaimer */}
                 <div className="text-center">
                   <span className="text-[11px] font-mono text-slate-400 dark:text-slate-500">
-                    Demo simulation preview
+                    {simulationResult ? 'FastAPI deterministic simulation active' : 'Live Python mathematical model'}
                   </span>
                 </div>
 
@@ -405,33 +549,33 @@ export function BusPage() {
             <div>
               <div className="flex items-center gap-2.5">
                 <h2 className="text-xl sm:text-2xl font-bold text-slate-900 dark:text-white tracking-tight">
-                  Simulation Preview
+                  Simulation Results
                 </h2>
-                <Badge variant="accent" size="sm">
-                  Illustrative Data
+                <Badge variant={simulationResult ? 'positive' : 'accent'} size="sm">
+                  {simulationResult ? 'Deterministic Output' : 'Calculated Preview'}
                 </Badge>
               </div>
               <p className="text-xs sm:text-sm text-slate-500 dark:text-slate-400 mt-1">
-                Example output for the selected policy scenario.
+                Auditable mathematical outputs calculated by the FastAPI simulation service.
               </p>
             </div>
 
             <div className="flex items-center gap-2">
               <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-mono bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700">
                 <Info className="w-3 h-3 text-slate-400" />
-                Illustrative / Synthetic Data
+                Deterministic Scenario Engine
               </span>
             </div>
           </div>
 
-          {/* 6 KPI CARDS (PREVIEW) */}
+          {/* 6 CORE KPI CARDS */}
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono font-bold uppercase tracking-wider text-slate-600 dark:text-slate-400">
                 Core Policy Indicators
               </span>
-              <span className="text-[11px] font-mono text-policy-600 dark:text-policy-400">
-                Preview calculation
+              <span className="text-[11px] font-mono text-policy-600 dark:text-policy-400 font-semibold">
+                {simulationResult ? 'Simulated via /api/bus/simulate' : 'Dynamic preview'}
               </span>
             </div>
 
@@ -439,9 +583,9 @@ export function BusPage() {
               {/* CARD 1: Fleet */}
               <BusMetricCard
                 label="Fleet"
-                baseline={activeMetrics.fleet.baseline}
-                simulated={activeMetrics.fleet.simulated}
-                change={activeMetrics.fleet.delta}
+                baseline={simulationResult ? simulationResult.current.fleet : localPreview.fleet.baseline}
+                simulated={simulationResult ? simulationResult.proposed.fleet : localPreview.fleet.simulated}
+                change={simulationResult ? `+${simulationResult.impact.fleet_percent}%` : localPreview.fleet.delta}
                 trend="positive"
                 icon={Bus}
                 detail="Total deployed vehicles"
@@ -450,64 +594,107 @@ export function BusPage() {
               {/* CARD 2: Daily Capacity */}
               <BusMetricCard
                 label="Daily Capacity"
-                baseline={activeMetrics.capacity.baseline}
-                simulated={activeMetrics.capacity.simulated}
-                change={activeMetrics.capacity.delta}
+                baseline={simulationResult ? simulationResult.current.daily_capacity.toLocaleString() : localPreview.capacity.baseline}
+                simulated={simulationResult ? simulationResult.proposed.daily_capacity.toLocaleString() : localPreview.capacity.simulated}
+                change={simulationResult ? `+${simulationResult.impact.capacity_percent}%` : localPreview.capacity.delta}
                 trend="positive"
-                detail="Simultaneous seat & stand capacity"
+                detail="Fleet × Capacity × Trips/day"
               />
 
               {/* CARD 3: Average Waiting Time */}
               <BusMetricCard
                 label="Avg Waiting Time"
-                baseline={activeMetrics.waitTime.baseline}
-                simulated={activeMetrics.waitTime.simulated}
-                change={activeMetrics.waitTime.delta}
-                trend={activeMetrics.waitTime.trend}
-                detail="Average commuter stop delay"
+                baseline={simulationResult ? `${simulationResult.current.waiting_time_minutes} min` : localPreview.waitTime.baseline}
+                simulated={simulationResult ? `${simulationResult.proposed.waiting_time_minutes} min` : localPreview.waitTime.simulated}
+                change={simulationResult ? `${simulationResult.impact.waiting_time_percent}%` : localPreview.waitTime.delta}
+                trend={simulationResult ? (simulationResult.impact.waiting_time_percent <= 0 ? 'positive' : 'negative') : localPreview.waitTime.trend}
+                detail="Queue pressure sensitivity approximation"
               />
 
               {/* CARD 4: Daily Ridership */}
               <BusMetricCard
                 label="Daily Ridership"
-                baseline={activeMetrics.ridership.baseline}
-                simulated={activeMetrics.ridership.simulated}
-                change={activeMetrics.ridership.delta}
+                baseline={simulationResult ? formatPaxK(simulationResult.current.daily_ridership) : localPreview.ridership.baseline}
+                simulated={simulationResult ? formatPaxK(simulationResult.proposed.daily_ridership) : localPreview.ridership.simulated}
+                change={simulationResult ? `+${simulationResult.impact.ridership_percent}%` : localPreview.ridership.delta}
                 trend="positive"
-                detail="Projected daily passenger boardings"
+                detail="Elasticity-adjusted passenger boardings"
               />
 
               {/* CARD 5: Operating Cost */}
               <BusMetricCard
                 label="Operating Cost"
-                baseline={activeMetrics.cost.baseline}
-                simulated={activeMetrics.cost.simulated}
-                change={activeMetrics.cost.delta}
+                baseline={simulationResult ? formatInrLakhs(simulationResult.current.operating_cost) : localPreview.cost.baseline}
+                simulated={simulationResult ? formatInrLakhs(simulationResult.proposed.operating_cost) : localPreview.cost.simulated}
+                change={simulationResult ? `+${simulationResult.impact.operating_cost_percent}%` : localPreview.cost.delta}
                 trend="cost-increase"
-                detail="Estimated daily fleet operational OPEX"
+                detail="Fleet × Operating cost per bus"
               />
 
               {/* CARD 6: Fleet Utilization */}
               <BusMetricCard
                 label="Fleet Utilization"
-                baseline={activeMetrics.utilization.baseline}
-                simulated={activeMetrics.utilization.simulated}
-                change={activeMetrics.utilization.delta}
+                baseline={simulationResult ? `${simulationResult.current.utilization_percent}%` : localPreview.utilization.baseline}
+                simulated={simulationResult ? `${simulationResult.proposed.utilization_percent}%` : localPreview.utilization.simulated}
+                change={simulationResult ? `${simulationResult.impact.utilization_percent}%` : localPreview.utilization.delta}
                 trend="neutral"
-                detail="Average seat occupancy ratio"
+                detail="Daily ridership / Daily capacity load factor"
               />
             </div>
           </div>
 
+          {/* FISCAL SURPLUS & EMISSIONS HIGHLIGHTS (ADDITIONAL DETERMINISTIC ENGINE INSIGHTS) */}
+          {simulationResult && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-soft-xs flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-emerald-50 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
+                    <Coins className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+                      Operating Surplus
+                    </div>
+                    <div className="text-sm font-extrabold text-slate-900 dark:text-white font-mono mt-0.5">
+                      {formatInrLakhs(simulationResult.current.operating_surplus)} → {formatInrLakhs(simulationResult.proposed.operating_surplus)}
+                    </div>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold text-slate-600 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded">
+                  {simulationResult.impact.operating_surplus_percent}%
+                </span>
+              </div>
+
+              <div className="p-4 rounded-xl border border-slate-200/90 dark:border-slate-800 bg-white dark:bg-slate-900 shadow-soft-xs flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-lg bg-sky-50 dark:bg-sky-950/60 text-sky-600 dark:text-sky-400 flex items-center justify-center shrink-0">
+                    <Leaf className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <div className="text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase tracking-wider font-mono">
+                      Fleet CO₂ Emissions
+                    </div>
+                    <div className="text-sm font-extrabold text-slate-900 dark:text-white font-mono mt-0.5">
+                      {(simulationResult.current.emissions_kg / 1000).toFixed(1)}T → {(simulationResult.proposed.emissions_kg / 1000).toFixed(1)}T CO₂/day
+                    </div>
+                  </div>
+                </div>
+                <span className="text-xs font-mono font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/50 px-2 py-1 rounded border border-amber-200 dark:border-amber-800">
+                  +{simulationResult.impact.emissions_percent}%
+                </span>
+              </div>
+            </div>
+          )}
+
           {/* CHARTS SECTION */}
           <div className="space-y-6">
             {/* Chart 1: Scenario Comparison Grouped Bar Chart */}
-            <ScenarioComparison />
+            <ScenarioComparison data={dynamicComparisonData} />
 
             {/* Side-by-side Chart 2 & Chart 3 */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* Chart 2: Policy Sensitivity Line Chart */}
-              <PolicySensitivity />
+              <PolicySensitivity data={dynamicSensitivityData} />
 
               {/* Chart 3: Cost vs Service Improvement */}
               <TradeoffChart />
@@ -516,20 +703,31 @@ export function BusPage() {
 
           {/* SYSTEM SCALE PICTOGRAPH */}
           <SystemScale
-            buses={activeMetrics.systemScale.buses}
-            passengers={`${activeMetrics.systemScale.passengers} passengers/day`}
-            routes={activeMetrics.systemScale.routes}
+            buses={simulationResult ? simulationResult.proposed.fleet : localPreview.systemScale.buses}
+            passengers={simulationResult ? `${formatPaxK(simulationResult.proposed.daily_ridership)} passengers/day` : `${localPreview.systemScale.passengers} passengers/day`}
+            routes={localPreview.systemScale.routes}
           />
 
           {/* POLICY IMPACT SUMMARY & "WHAT CHANGES?" */}
           <ImpactSummary
-            serviceStatus={activeMetrics.impact.service.status}
-            waitTimeDelta={activeMetrics.impact.service.waitTimeDelta}
-            ridershipDelta={activeMetrics.impact.service.ridershipDelta}
-            costStatus={activeMetrics.impact.cost.status}
-            costDelta={activeMetrics.impact.cost.costDelta}
-            utilizationStatus={activeMetrics.impact.utilization.status}
-            utilizationDelta={activeMetrics.impact.utilization.utilizationDelta}
+            serviceStatus={simulationResult ? (simulationResult.impact.waiting_time_percent <= 0 ? 'Improved' : 'Congested') : localPreview.impact.service.status}
+            waitTimeDelta={simulationResult ? `${simulationResult.impact.waiting_time_percent}%` : localPreview.impact.service.waitTimeDelta}
+            ridershipDelta={simulationResult ? `+${simulationResult.impact.ridership_percent}%` : localPreview.impact.service.ridershipDelta}
+            costStatus={simulationResult ? 'Increased' : localPreview.impact.cost.status}
+            costDelta={simulationResult ? `+${simulationResult.impact.operating_cost_percent}%` : localPreview.impact.cost.costDelta}
+            utilizationStatus={simulationResult ? 'Changed' : localPreview.impact.utilization.status}
+            utilizationDelta={simulationResult ? `${simulationResult.impact.utilization_percent}%` : localPreview.impact.utilization.utilizationDelta}
+          />
+
+          {/* MODEL ASSUMPTIONS & AUDIT TRAIL */}
+          <ModelAssumptions
+            assumptions={simulationResult ? simulationResult.assumptions : {
+              trips_per_bus_per_day: tripsPerBusPerDay,
+              demand_elasticity: demandElasticity,
+              waiting_time_alpha: 0.5,
+              daily_fuel_use_per_bus: dailyFuelUse,
+              emission_factor_kg_per_liter: emissionFactor,
+            }}
           />
 
           {/* STRESS TEST PREVIEW ENVELOPE */}

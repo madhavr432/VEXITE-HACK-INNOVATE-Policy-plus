@@ -41,7 +41,9 @@ function SensitivityTooltip({ active, payload, label }) {
  * PolicySensitivity Component
  * Line chart visualizing passenger waiting time sensitivity relative to fleet increments
  */
-export function PolicySensitivity({ className = '' }) {
+export function PolicySensitivity({ data, className = '' }) {
+  const chartData = data && data.length > 0 ? data : POLICY_SENSITIVITY_DATA;
+
   return (
     <Card className={cn('overflow-hidden', className)}>
       <CardHeader className="pb-3">
@@ -62,7 +64,7 @@ export function PolicySensitivity({ className = '' }) {
         <div className="h-56 sm:h-64 w-full">
           <ResponsiveContainer width="100%" height="100%">
             <LineChart
-              data={POLICY_SENSITIVITY_DATA}
+              data={chartData}
               margin={{ top: 10, right: 15, left: -20, bottom: 0 }}
             >
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94a3b8" strokeOpacity={0.2} />

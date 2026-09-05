@@ -140,9 +140,22 @@ policyforge/
    ```bash
    python -m uvicorn main:app --reload --port 8000
    ```
-4. Verify backend health:
+4. Verify backend endpoints:
    * Health check: `http://localhost:8000/api/health`
+   * Bus status check: `http://localhost:8000/api/bus`
+   * Deterministic Bus Simulation API: `POST http://localhost:8000/api/bus/simulate`
    * Interactive OpenAPI Docs: `http://localhost:8000/docs`
+
+#### Bus Simulation Engine (`POST /api/bus/simulate`)
+The bus policy engine calculates deterministic, reproducible mathematical projections:
+* **Capacity & Headway**: `DailyCapacity = Fleet × CapacityPerBus × TripsPerBusPerDay`
+* **Demand Elasticity**: Empirical ridership response `DemandChange = DemandElasticity × ServiceChange`
+* **Waiting Time Sensitivity**: Approximation based on queue pressure ratios `(ProposedPressure / CurrentPressure)^alpha`
+* **Fiscal Metrics**: Operational expenditure, farebox revenues, and daily operating surplus
+* **Carbon Emissions**: Fuel consumption and CO₂ footprint calculations
+
+> **Note on Scenario Estimates**:
+> The bus policy engine is purely deterministic and produces transparent scenario estimates based on configurable assumptions. The waiting-time and demand-response models are sensitivity approximations designed for decision support; real-world deployment would require calibrated empirical transit data. The model is not claimed to be a guaranteed real-world forecast.
 
 ### 3. Frontend Setup
 1. Open a new terminal in the project directory:
